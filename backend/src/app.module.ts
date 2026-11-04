@@ -19,6 +19,12 @@ import { SyncController } from "./sync/sync.controller";
 import { SettingsController } from "./settings/settings.controller";
 import { BarcodeCache } from "./catalog/barcode-cache.service";
 import { EventsController } from "./events/events.controller";
+import { CustomersController } from "./operations/customers.controller";
+import { FinanceController } from "./operations/finance.controller";
+import { FinanceService } from "./operations/finance.service";
+import { StockControlController } from "./operations/stock-control.controller";
+import { FulfillmentController } from "./operations/fulfillment.controller";
+import { IntelligenceController } from "./operations/intelligence.controller";
 @Controller("health")
 class HealthController {
   constructor(private readonly db: Db) {}
@@ -56,12 +62,18 @@ class HealthController {
     SyncController,
     SettingsController,
     EventsController,
+    CustomersController,
+    FinanceController,
+    StockControlController,
+    FulfillmentController,
+    IntelligenceController,
   ],
   providers: [
     Db,
     InventoryService,
     SalesService,
     BarcodeCache,
+    FinanceService,
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
 })
