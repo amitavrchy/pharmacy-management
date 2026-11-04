@@ -1,8 +1,366 @@
-'use client';
-import {useEffect,useState} from 'react';
-import {Download,Package,SlidersHorizontal,History,RotateCcw,ShieldAlert,Trash2} from 'lucide-react';
-import {useResource} from '@/lib/use-resource';
-import {useApp} from '@/components/providers';
-import {Badge,Button,Empty,ErrorState,Form,Loading,Modal,PageHeader,SearchBox,Table} from '@/components/ui';
-import {api,downloadCSV,formatDate,number,post,taka} from '@/lib/api';
-export default function Inventory(){const {data,error,loading,reload}=useResource<any[]>('inventory'),{user,notify}=useApp(),[search,setSearch]=useState(''),[filter,setFilter]=useState('ALL'),[selected,setSelected]=useState<any>(null),[action,setAction]=useState(''),[history,setHistory]=useState<any[]>([]),[limit,setLimit]=useState(30);useEffect(()=>{const f=new URLSearchParams(location.search).get('filter');if(f)setFilter(f==='expiry'?'EXPIRY':'LOW');},[]);const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dhaka'}).format(new Date()),day=(d:string)=>Math.round((new Date(d).getTime()-new Date(today).getTime())/86400000),rows=(data||[]).filter(b=>`${b.medicine.brandName} ${b.lotNumber} ${b.rack}`.toLowerCase().includes(search.toLowerCase())&&(filter==='ALL'||filter==='EXPIRY'&&day(b.expiryDate)<=90||filter==='LOW'&&Number(b.qtyOnHand)<=Number(b.medicine.reorderLevel)||filter===b.status));async function show(b:any,a:string){setSelected(b);setAction(a);if(a==='history')try{setHistory(await api(`inventory/${b.id}/movements`));}catch(e){notify((e as Error).message,true);setSelected(null);}}return <><PageHeader eyebrow="EVERY BATCH ACCOUNTED FOR" title="Inventory" description="Know what’s on your shelves, and what needs your attention." actions={<Button variant="secondary" onClick={()=>downloadCSV('inventory.csv',rows.map(b=>({medicine:b.medicine.brandName,lot:b.lotNumber,expiry:b.expiryDate,qty:b.qtyOnHand,rack:b.rack,status:b.status})))}><Download size={17}/>Export stock</Button>}/><div className="inline-note row"><Package size={19}/><span>FEFO is always on. Expired, quarantined and recalled batches are blocked from dispensing.</span></div>{loading?<Loading/>:error?<ErrorState error={error} retry={reload}/>:<section className="panel"><div className="toolbar"><SearchBox value={search} onChange={setSearch} placeholder="Search medicine, batch or rack…"/><select className="filter-select" aria-label="Filter inventory" value={filter} onChange={e=>setFilter(e.target.value)}>{[['ALL','All batches'],['LOW','Low stock'],['EXPIRY','Expiring in 90 days'],['ACTIVE','Active'],['QUARANTINED','Quarantined'],['RECALLED','Recalled'],['EXPIRED_WASTED','Disposed']].map(([v,l])=><option value={v} key={v}>{l}</option>)}</select><span className="result-count">{rows.length} batches</span></div>{rows.length?<Table headers={['Medicine / batch','Expiry','Available','Rack','Status','Actions']}>{rows.slice(0,limit).map(b=><tr key={b.id}><td><strong>{b.medicine.brandName}</strong><small>{b.lotNumber} · {b.medicine.strength}</small></td><td><span className={day(b.expiryDate)<=0?'text-red':day(b.expiryDate)<=90?'text-amber':''}>{formatDate(b.expiryDate)}</span><small>{day(b.expiryDate)<=0?'Expired':`${day(b.expiryDate)} days remaining`}</small></td><td>{number(b.qtyOnHand)} units{b.costMinor!==undefined&&<small>{taka(b.costMinor)} unit cost</small>}</td><td>{b.rack||'Unassigned'}</td><td><Badge>{b.status}</Badge></td><td><div className="actions"><button className="icon-btn" aria-label={`History ${b.lotNumber}`} onClick={()=>show(b,'history')}><History size={17}/></button>{['OWNER','STORE_KEEPER'].includes(user?.role)&&b.status==='ACTIVE'&&<><button className="icon-btn" aria-label={`Adjust ${b.lotNumber}`} onClick={()=>show(b,'adjust')}><SlidersHorizontal size={17}/></button><button className="icon-btn" aria-label={`Return to supplier ${b.lotNumber}`} onClick={()=>show(b,'return')}><RotateCcw size={17}/></button></>}{['OWNER','PHARMACIST'].includes(user?.role)&&!b.recalled&&b.status!=='EXPIRED_WASTED'&&<button className="icon-btn" aria-label={`Recall ${b.lotNumber}`} onClick={()=>show(b,'recall')}><ShieldAlert size={17}/></button>}{['OWNER','STORE_KEEPER'].includes(user?.role)&&['RECALLED','QUARANTINED'].includes(b.status)&&<button className="icon-btn" aria-label={`Dispose ${b.lotNumber}`} onClick={()=>show(b,'waste')}><Trash2 size={17}/></button>}</div></td></tr>)}</Table>:<Empty title="No matching batches"/>}<div className="table-footer"><span>Showing {Math.min(limit,rows.length)} of {rows.length} batches</span>{rows.length>limit&&<Button variant="secondary small" onClick={()=>setLimit(limit+30)}>Load more</Button>}</div></section>}{selected&&<Modal title={`${{adjust:'Count / relocate stock',return:'Return to supplier',recall:'Recall batch',waste:'Dispose blocked stock',history:'Stock movements'}[action]} · ${selected.lotNumber}`} description={selected.medicine.brandName} onClose={()=>{setSelected(null);setHistory([]);}}>{action==='history'?history.length?<Table headers={['Type','Quantity','Note','Date']}>{history.map(h=><tr key={h.id}><td>{h.type}</td><td>{number(h.qty)}</td><td>{h.note||'—'}</td><td>{formatDate(h.createdAt)}</td></tr>)}</Table>:<Empty title="No movements recorded" description="Opening stock is recorded by the seed. Future movements appear here."/>:<Form fields={action==='adjust'?[{name:'qty',label:'Actual counted quantity (units)',type:'number',min:0,step:'.001',defaultValue:selected.qtyOnHand,required:true},{name:'rack',label:'Rack / shelf',defaultValue:selected.rack},{name:'note',label:'Adjustment / transfer reason',required:true}]:action==='return'?[{name:'qty',label:'Quantity to return',type:'number',min:.001,max:Number(selected.qtyOnHand),step:'.001',required:true},{name:'reason',label:'Return reason',required:true}]:[{name:action==='waste'?'note':'reason',label:action==='waste'?'Disposal note':'Recall reason',required:true}]} submit={action==='recall'?'Freeze batch':action==='waste'?'Confirm disposal':'Save'} onSubmit={async v=>{if(action==='adjust')await post(`inventory/${selected.id}/adjust`,v);if(action==='return')await post('purchasing/returns',{...v,batchId:selected.id});if(action==='recall')await post('recalls',{...v,batchId:selected.id});if(action==='waste')await post(`recalls/${selected.id}/waste`,v);setSelected(null);reload();notify('Stock record updated');}}/>}</Modal>}</>;}
+"use client";
+import { useEffect, useState } from "react";
+import {
+  Download,
+  Package,
+  SlidersHorizontal,
+  History,
+  RotateCcw,
+  ShieldAlert,
+  Trash2,
+} from "lucide-react";
+import { useResource } from "@/lib/use-resource";
+import { useApp } from "@/components/providers";
+import {
+  Badge,
+  Button,
+  Empty,
+  ErrorState,
+  Form,
+  Loading,
+  Modal,
+  PageHeader,
+  SearchBox,
+  Table,
+} from "@/components/ui";
+import { api, downloadCSV, formatDate, number, post, taka } from "@/lib/api";
+export default function Inventory() {
+  const { data, error, loading, reload } = useResource<any[]>("inventory"),
+    { user, notify } = useApp(),
+    [search, setSearch] = useState(""),
+    [filter, setFilter] = useState("ALL"),
+    [selected, setSelected] = useState<any>(null),
+    [action, setAction] = useState(""),
+    [history, setHistory] = useState<any[]>([]),
+    [limit, setLimit] = useState(30);
+  useEffect(() => {
+    const f = new URLSearchParams(location.search).get("filter");
+    if (f) setFilter(f === "expiry" ? "EXPIRY" : "LOW");
+  }, []);
+  const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Dhaka",
+    }).format(new Date()),
+    day = (d: string) =>
+      Math.round(
+        (new Date(d).getTime() - new Date(today).getTime()) / 86400000,
+      ),
+    rows = (data || []).filter(
+      (b) =>
+        `${b.medicine.brandName} ${b.lotNumber} ${b.rack}`
+          .toLowerCase()
+          .includes(search.toLowerCase()) &&
+        (filter === "ALL" ||
+          (filter === "EXPIRY" && day(b.expiryDate) <= 90) ||
+          (filter === "LOW" &&
+            Number(b.qtyOnHand) <= Number(b.medicine.reorderLevel)) ||
+          filter === b.status),
+    );
+  async function show(b: any, a: string) {
+    setSelected(b);
+    setAction(a);
+    if (a === "history")
+      try {
+        setHistory(await api(`inventory/${b.id}/movements`));
+      } catch (e) {
+        notify((e as Error).message, true);
+        setSelected(null);
+      }
+  }
+  return (
+    <>
+      <PageHeader
+        eyebrow="EVERY BATCH ACCOUNTED FOR"
+        title="Inventory"
+        description="Know what’s on your shelves, and what needs your attention."
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() =>
+              downloadCSV(
+                "inventory.csv",
+                rows.map((b) => ({
+                  medicine: b.medicine.brandName,
+                  lot: b.lotNumber,
+                  expiry: b.expiryDate,
+                  qty: b.qtyOnHand,
+                  rack: b.rack,
+                  status: b.status,
+                })),
+              )
+            }
+          >
+            <Download size={17} />
+            Export stock
+          </Button>
+        }
+      />
+      <div className="inline-note row">
+        <Package size={19} />
+        <span>
+          FEFO is always on. Expired, quarantined and recalled batches are
+          blocked from dispensing.
+        </span>
+      </div>
+      {loading ? (
+        <Loading />
+      ) : error ? (
+        <ErrorState error={error} retry={reload} />
+      ) : (
+        <section className="panel">
+          <div className="toolbar">
+            <SearchBox
+              value={search}
+              onChange={setSearch}
+              placeholder="Search medicine, batch or rack…"
+            />
+            <select
+              className="filter-select"
+              aria-label="Filter inventory"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            >
+              {[
+                ["ALL", "All batches"],
+                ["LOW", "Low stock"],
+                ["EXPIRY", "Expiring in 90 days"],
+                ["ACTIVE", "Active"],
+                ["QUARANTINED", "Quarantined"],
+                ["RECALLED", "Recalled"],
+                ["EXPIRED_WASTED", "Disposed"],
+              ].map(([v, l]) => (
+                <option value={v} key={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <span className="result-count">{rows.length} batches</span>
+          </div>
+          {rows.length ? (
+            <Table
+              headers={[
+                "Medicine / batch",
+                "Expiry",
+                "Available",
+                "Rack",
+                "Status",
+                "Actions",
+              ]}
+            >
+              {rows.slice(0, limit).map((b) => (
+                <tr key={b.id}>
+                  <td>
+                    <strong>{b.medicine.brandName}</strong>
+                    <small>
+                      {b.lotNumber} · {b.medicine.strength}
+                    </small>
+                  </td>
+                  <td>
+                    <span
+                      className={
+                        day(b.expiryDate) <= 0
+                          ? "text-red"
+                          : day(b.expiryDate) <= 90
+                            ? "text-amber"
+                            : ""
+                      }
+                    >
+                      {formatDate(b.expiryDate)}
+                    </span>
+                    <small>
+                      {day(b.expiryDate) <= 0
+                        ? "Expired"
+                        : `${day(b.expiryDate)} days remaining`}
+                    </small>
+                  </td>
+                  <td>
+                    {number(b.qtyOnHand)} units
+                    {b.costMinor !== undefined && (
+                      <small>{taka(b.costMinor)} unit cost</small>
+                    )}
+                  </td>
+                  <td>{b.rack || "Unassigned"}</td>
+                  <td>
+                    <Badge>{b.status}</Badge>
+                  </td>
+                  <td>
+                    <div className="actions">
+                      <button
+                        className="icon-btn"
+                        aria-label={`History ${b.lotNumber}`}
+                        onClick={() => show(b, "history")}
+                      >
+                        <History size={17} />
+                      </button>
+                      {["OWNER", "STORE_KEEPER"].includes(user?.role) &&
+                        b.status === "ACTIVE" && (
+                          <>
+                            <button
+                              className="icon-btn"
+                              aria-label={`Adjust ${b.lotNumber}`}
+                              onClick={() => show(b, "adjust")}
+                            >
+                              <SlidersHorizontal size={17} />
+                            </button>
+                            <button
+                              className="icon-btn"
+                              aria-label={`Return to supplier ${b.lotNumber}`}
+                              onClick={() => show(b, "return")}
+                            >
+                              <RotateCcw size={17} />
+                            </button>
+                          </>
+                        )}
+                      {["OWNER", "PHARMACIST"].includes(user?.role) &&
+                        !b.recalled &&
+                        b.status !== "EXPIRED_WASTED" && (
+                          <button
+                            className="icon-btn"
+                            aria-label={`Recall ${b.lotNumber}`}
+                            onClick={() => show(b, "recall")}
+                          >
+                            <ShieldAlert size={17} />
+                          </button>
+                        )}
+                      {["OWNER", "STORE_KEEPER"].includes(user?.role) &&
+                        ["RECALLED", "QUARANTINED"].includes(b.status) && (
+                          <button
+                            className="icon-btn"
+                            aria-label={`Dispose ${b.lotNumber}`}
+                            onClick={() => show(b, "waste")}
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          ) : (
+            <Empty title="No matching batches" />
+          )}
+          <div className="table-footer">
+            <span>
+              Showing {Math.min(limit, rows.length)} of {rows.length} batches
+            </span>
+            {rows.length > limit && (
+              <Button
+                variant="secondary small"
+                onClick={() => setLimit(limit + 30)}
+              >
+                Load more
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
+      {selected && (
+        <Modal
+          title={`${{ adjust: "Count / relocate stock", return: "Return to supplier", recall: "Recall batch", waste: "Dispose blocked stock", history: "Stock movements" }[action]} · ${selected.lotNumber}`}
+          description={selected.medicine.brandName}
+          onClose={() => {
+            setSelected(null);
+            setHistory([]);
+          }}
+        >
+          {action === "history" ? (
+            history.length ? (
+              <Table headers={["Type", "Quantity", "Note", "Date"]}>
+                {history.map((h) => (
+                  <tr key={h.id}>
+                    <td>{h.type}</td>
+                    <td>{number(h.qty)}</td>
+                    <td>{h.note || "—"}</td>
+                    <td>{formatDate(h.createdAt)}</td>
+                  </tr>
+                ))}
+              </Table>
+            ) : (
+              <Empty
+                title="No movements recorded"
+                description="Opening stock is recorded by the seed. Future movements appear here."
+              />
+            )
+          ) : (
+            <Form
+              fields={
+                action === "adjust"
+                  ? [
+                      {
+                        name: "qty",
+                        label: "Actual counted quantity (units)",
+                        type: "number",
+                        min: 0,
+                        step: ".001",
+                        defaultValue: selected.qtyOnHand,
+                        required: true,
+                      },
+                      {
+                        name: "rack",
+                        label: "Rack / shelf",
+                        defaultValue: selected.rack,
+                      },
+                      {
+                        name: "note",
+                        label: "Adjustment / transfer reason",
+                        required: true,
+                      },
+                    ]
+                  : action === "return"
+                    ? [
+                        {
+                          name: "qty",
+                          label: "Quantity to return",
+                          type: "number",
+                          min: 0.001,
+                          max: Number(selected.qtyOnHand),
+                          step: ".001",
+                          required: true,
+                        },
+                        {
+                          name: "reason",
+                          label: "Return reason",
+                          required: true,
+                        },
+                      ]
+                    : [
+                        {
+                          name: action === "waste" ? "note" : "reason",
+                          label:
+                            action === "waste"
+                              ? "Disposal note"
+                              : "Recall reason",
+                          required: true,
+                        },
+                      ]
+              }
+              submit={
+                action === "recall"
+                  ? "Freeze batch"
+                  : action === "waste"
+                    ? "Confirm disposal"
+                    : "Save"
+              }
+              onSubmit={async (v) => {
+                if (action === "adjust")
+                  await post(`inventory/${selected.id}/adjust`, v);
+                if (action === "return")
+                  await post("purchasing/returns", {
+                    ...v,
+                    batchId: selected.id,
+                  });
+                if (action === "recall")
+                  await post("recalls", { ...v, batchId: selected.id });
+                if (action === "waste")
+                  await post(`recalls/${selected.id}/waste`, v);
+                setSelected(null);
+                reload();
+                notify("Stock record updated");
+              }}
+            />
+          )}
+        </Modal>
+      )}
+    </>
+  );
+}

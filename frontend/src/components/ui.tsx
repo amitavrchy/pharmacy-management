@@ -1,21 +1,329 @@
-'use client';
-import {ReactNode,useEffect,useRef,useState} from 'react';
-import {X,Search,Inbox,LoaderCircle,ArrowUpRight} from 'lucide-react';
-export function Button({children,variant='',busy=false,...props}:React.ButtonHTMLAttributes<HTMLButtonElement>&{variant?:string;busy?:boolean}){return <button {...props} disabled={busy||props.disabled} className={`btn ${variant} ${props.className||''}`}>{busy&&<LoaderCircle className="spin" size={18}/>} {children}</button>;}
-export function Badge({children,tone=''}:{children:ReactNode;tone?:string}){const value=String(children);return <span className={`badge ${tone||(/ACTIVE|COMPLETED|VERIFIED|RECEIVED|RESTOCKED|OTC|DISPENSED/.test(value)?'green':/RECALL|EXPIRED|REJECTED|CANCELLED|CONTROLLED/.test(value)?'red':'amber')}`}>{value.replaceAll('_',' ')}</span>;}
-export function PageHeader({eyebrow='WORKSPACE',title,description,actions}:{eyebrow?:string;title:string;description:string;actions?:ReactNode}){return <div className="page-header"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div><div className="header-actions">{actions}</div></div>;}
-export function SearchBox({value,onChange,placeholder='Search…'}:{value:string;onChange:(v:string)=>void;placeholder?:string}){return <div className="search"><Search size={19}/><input aria-label={placeholder} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)}/>{value&&<button aria-label="Clear search" className="icon-btn" onClick={()=>onChange('')}><X size={16}/></button>}</div>;}
-export function Empty({title='Nothing here yet',description='New records will appear here.',action}:{title?:string;description?:string;action?:ReactNode}){return <div className="empty"><div className="empty-icon"><Inbox size={27}/></div><h3>{title}</h3><p>{description}</p>{action}</div>;}
-export function Loading(){return <div className="skeleton-stack" role="status" aria-label="Loading data">{[1,2,3].map(i=><div className="skeleton" key={i}/>)}</div>;}
-export function ErrorState({error,retry}:{error:string;retry:()=>void}){return <div className="error-state" role="alert"><strong>Couldn’t load this view</strong><p>{error}</p><Button variant="secondary" onClick={retry}>Try again</Button></div>;}
-export function Modal({title,description,children,onClose}:{title:string;description?:string;children:ReactNode;onClose:()=>void}){
-  const ref=useRef<HTMLDialogElement>(null);
-  useEffect(()=>{const dialog=ref.current!;dialog.showModal();const handler=(e:Event)=>{e.preventDefault();onClose();};dialog.addEventListener('cancel',handler);return()=>{dialog.removeEventListener('cancel',handler);dialog.close();};},[onClose]);
-  return <dialog ref={ref} className="modal" aria-labelledby="dialog-title" onClick={e=>{if(e.target===ref.current)onClose();}}><div className="modal-head"><div><h2 id="dialog-title">{title}</h2>{description&&<p>{description}</p>}</div><button className="icon-btn" aria-label="Close dialog" onClick={onClose}><X size={22}/></button></div>{children}</dialog>;
+"use client";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { X, Search, Inbox, LoaderCircle, ArrowUpRight } from "lucide-react";
+export function Button({
+  children,
+  variant = "",
+  busy = false,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: string;
+  busy?: boolean;
+}) {
+  return (
+    <button
+      {...props}
+      disabled={busy || props.disabled}
+      className={`btn ${variant} ${props.className || ""}`}
+    >
+      {busy && <LoaderCircle className="spin" size={18} />} {children}
+    </button>
+  );
 }
-export type Field={name:string;label:string;type?:string;required?:boolean;options?:{value:string;label:string}[];defaultValue?:string|number;min?:number;step?:string;max?:number;hint?:string};
-export function Form({fields,onSubmit,submit='Save',children}:{fields:Field[];onSubmit:(values:any)=>Promise<void>;submit?:string;children?:ReactNode}){
-  const [busy,setBusy]=useState(false),[error,setError]=useState('');
-  return <form className="form" onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;const fd=new FormData(form);const data:any={};for(const f of fields){const value=fd.get(f.name);data[f.name]=f.type==='checkbox'?value==='on':f.type==='number'?Number(value):value||undefined;}setBusy(true);setError('');try{await onSubmit(data);}catch(err){setError(err instanceof Error?err.message:'Please try again');}finally{setBusy(false);}}}>{fields.map(f=><label className={f.type==='checkbox'?'check-field':'field'} key={f.name}><span>{f.label}{f.required?' *':''}</span>{f.options?<select name={f.name} required={f.required} defaultValue={f.defaultValue}><option value="">Select…</option>{f.options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>:f.type==='textarea'?<textarea name={f.name} required={f.required} defaultValue={f.defaultValue} maxLength={1000}/>:<input name={f.name} type={f.type||'text'} required={f.required} defaultValue={f.type==='checkbox'?undefined:f.defaultValue} defaultChecked={f.type==='checkbox'?Boolean(f.defaultValue):undefined} min={f.min} max={f.max} step={f.step} maxLength={f.type==='password'?200:300}/ >}{f.hint&&<small>{f.hint}</small>}</label>)}{children}{error&&<div className="inline-error" role="alert">{error}</div>}<div className="form-actions"><Button busy={busy} type="submit">{submit}<ArrowUpRight size={17}/></Button></div></form>;
+export function Badge({
+  children,
+  tone = "",
+}: {
+  children: ReactNode;
+  tone?: string;
+}) {
+  const value = String(children);
+  return (
+    <span
+      className={`badge ${tone || (/ACTIVE|COMPLETED|VERIFIED|RECEIVED|RESTOCKED|OTC|DISPENSED/.test(value) ? "green" : /RECALL|EXPIRED|REJECTED|CANCELLED|CONTROLLED/.test(value) ? "red" : "amber")}`}
+    >
+      {typeof children === "string" ? children.replaceAll("_", " ") : children}
+    </span>
+  );
 }
-export function Table({headers,children}:{headers:string[];children:ReactNode}){return <div className="table-wrap"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{children}</tbody></table></div>;}
+export function PageHeader({
+  eyebrow = "WORKSPACE",
+  title,
+  description,
+  actions,
+}: {
+  eyebrow?: string;
+  title: string;
+  description: string;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="page-header">
+      <div>
+        <div className="eyebrow">{eyebrow}</div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      <div className="header-actions">{actions}</div>
+    </div>
+  );
+}
+export function SearchBox({
+  value,
+  onChange,
+  placeholder = "Search…",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="search">
+      <Search size={19} />
+      <input
+        aria-label={placeholder}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {value && (
+        <button
+          aria-label="Clear search"
+          className="icon-btn"
+          onClick={() => onChange("")}
+        >
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
+export function Empty({
+  title = "Nothing here yet",
+  description = "New records will appear here.",
+  action,
+}: {
+  title?: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="empty">
+      <div className="empty-icon">
+        <Inbox size={27} />
+      </div>
+      <h3>{title}</h3>
+      <p>{description}</p>
+      {action}
+    </div>
+  );
+}
+export function Loading() {
+  return (
+    <div className="skeleton-stack" role="status" aria-label="Loading data">
+      {[1, 2, 3].map((i) => (
+        <div className="skeleton" key={i} />
+      ))}
+    </div>
+  );
+}
+export function ErrorState({
+  error,
+  retry,
+}: {
+  error: string;
+  retry: () => void;
+}) {
+  return (
+    <div className="error-state" role="alert">
+      <strong>Couldn’t load this view</strong>
+      <p>{error}</p>
+      <Button variant="secondary" onClick={retry}>
+        Try again
+      </Button>
+    </div>
+  );
+}
+export function Modal({
+  title,
+  description,
+  children,
+  onClose,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const dialog = ref.current!;
+    dialog.showModal();
+    const handler = (e: Event) => {
+      e.preventDefault();
+      closeRef.current();
+    };
+    dialog.addEventListener("cancel", handler);
+    return () => {
+      dialog.removeEventListener("cancel", handler);
+      dialog.close();
+    };
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="modal"
+      aria-labelledby="dialog-title"
+      onClick={(e) => {
+        if (e.target === ref.current) onClose();
+      }}
+    >
+      <div className="modal-head">
+        <div>
+          <h2 id="dialog-title">{title}</h2>
+          {description && <p>{description}</p>}
+        </div>
+        <button
+          className="icon-btn"
+          aria-label="Close dialog"
+          onClick={onClose}
+        >
+          <X size={22} />
+        </button>
+      </div>
+      {children}
+    </dialog>
+  );
+}
+export type Field = {
+  name: string;
+  label: string;
+  type?: string;
+  required?: boolean;
+  options?: { value: string; label: string }[];
+  defaultValue?: string | number;
+  min?: number;
+  step?: string;
+  max?: number;
+  hint?: string;
+};
+export function Form({
+  fields,
+  onSubmit,
+  submit = "Save",
+  children,
+}: {
+  fields: Field[];
+  onSubmit: (values: any) => Promise<void>;
+  submit?: string;
+  children?: ReactNode;
+}) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  return (
+    <form
+      className="form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const fd = new FormData(form);
+        const data: any = {};
+        for (const f of fields) {
+          const value = fd.get(f.name);
+          data[f.name] =
+            f.type === "checkbox"
+              ? value === "on"
+              : f.type === "number"
+                ? Number(value)
+                : value || undefined;
+        }
+        setBusy(true);
+        setError("");
+        try {
+          await onSubmit(data);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Please try again");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {fields.map((f) => (
+        <label
+          className={f.type === "checkbox" ? "check-field" : "field"}
+          key={f.name}
+        >
+          <span>
+            {f.label}
+            {f.required ? " *" : ""}
+          </span>
+          {f.options ? (
+            <select
+              aria-label={f.label}
+              name={f.name}
+              required={f.required}
+              defaultValue={f.defaultValue}
+            >
+              <option value="">Select…</option>
+              {f.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : f.type === "textarea" ? (
+            <textarea
+              aria-label={f.label}
+              name={f.name}
+              required={f.required}
+              defaultValue={f.defaultValue}
+              maxLength={1000}
+            />
+          ) : (
+            <input
+              aria-label={f.label}
+              name={f.name}
+              type={f.type || "text"}
+              required={f.required}
+              defaultValue={f.type === "checkbox" ? undefined : f.defaultValue}
+              defaultChecked={
+                f.type === "checkbox" ? Boolean(f.defaultValue) : undefined
+              }
+              min={f.min}
+              max={f.max}
+              step={f.step}
+              maxLength={f.type === "password" ? 200 : 300}
+            />
+          )}
+          {f.hint && <small>{f.hint}</small>}
+        </label>
+      ))}
+      {children}
+      {error && (
+        <div className="inline-error" role="alert">
+          {error}
+        </div>
+      )}
+      <div className="form-actions">
+        <Button busy={busy} type="submit">
+          {submit}
+          <ArrowUpRight size={17} />
+        </Button>
+      </div>
+    </form>
+  );
+}
+export function Table({
+  headers,
+  children,
+}: {
+  headers: string[];
+  children: ReactNode;
+}) {
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <th key={h}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}

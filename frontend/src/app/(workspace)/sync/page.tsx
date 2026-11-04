@@ -1,8 +1,165 @@
-'use client';
-import {useEffect,useState} from 'react';
-import {RefreshCw,Wifi,HardDrive} from 'lucide-react';
-import {useApp} from '@/components/providers';
-import {Badge,Button,Empty,Modal,PageHeader,Table} from '@/components/ui';
-import {queuedSales,syncSales,removeQueued} from '@/lib/offline';
-import {api,formatDate,taka} from '@/lib/api';
-export default function Sync(){const {user,notify}=useApp(),[queue,setQueue]=useState<any[]>([]),[reviews,setReviews]=useState<any[]>([]),[busy,setBusy]=useState(false),[selected,setSelected]=useState<any>(null);async function load(){if(!user)return;setQueue(await queuedSales(user.id));if(['OWNER','AUDITOR'].includes(user.role))try{setReviews(await api('sync/reviews'));}catch{}}useEffect(()=>{load();window.addEventListener('pharmacy:queue',load);return()=>window.removeEventListener('pharmacy:queue',load);},[user]);async function sync(){setBusy(true);try{const result=await syncSales(user.id);notify(`${result.filter((s:any)=>s.status==='COMPLETED').length} sales synchronized`);load();}catch(e){notify((e as Error).message,true);}finally{setBusy(false);}}return <><PageHeader eyebrow="CONNECTED, EVEN BETWEEN CONNECTIONS" title="Offline sync" description="A transparent view of sales waiting safely on this device." actions={['OWNER','PHARMACIST','CASHIER'].includes(user?.role)&&<Button busy={busy} disabled={!queue.length} onClick={sync}><RefreshCw size={18}/>Sync now</Button>}/><div className="inline-note">Offline OTC sales are provisional. The server rechecks stock, expiry, prices and margin before accepting them. Keep this browser’s storage intact until every sale is resolved.</div><section className="panel"><div className="panel-header"><div className="row"><HardDrive size={20}/><h2>This device</h2></div><Badge tone="blue">{queue.length} queued</Badge></div>{queue.length?<Table headers={['Client receipt','Queued','Payment','Status','']}>{queue.map(s=><tr key={s.clientSaleId}><td><strong>#{s.clientSaleId.slice(0,8).toUpperCase()}</strong><small>{s.lines.length} items{s.reason?` · ${s.reason}`:''}</small></td><td>{formatDate(s.queuedAt)}</td><td>{taka(s.tenders.reduce((a:number,t:any)=>a+t.amountMinor,0))}</td><td><Badge>{s.status}</Badge></td><td><Button variant="ghost small" onClick={()=>setSelected(s)}>Resolve locally</Button></td></tr>)}</Table>:<Empty title="Everything is up to date" description="No sales on this device are waiting to sync."/>}</section>{['OWNER','AUDITOR'].includes(user?.role)&&<section className="panel mt"><div className="panel-header"><div><h2>Server review queue</h2><p>Rejected sync attempts remain visible for reconciliation.</p></div><Wifi size={20}/></div>{reviews.length?<Table headers={['Client receipt','Reason','Status','Date']}>{reviews.map(r=><tr key={r.id}><td>{r.clientSaleId.slice(0,8).toUpperCase()}</td><td style={{whiteSpace:'normal',maxWidth:450}}>{r.reason}</td><td><Badge>{r.status}</Badge></td><td>{formatDate(r.createdAt)}</td></tr>)}</Table>:<Empty title="No server reviews pending"/>}</section>}{selected&&<Modal title="Remove local provisional sale?" description="Only remove after confirming a refund or a replacement receipt. This does not reverse a payment or delete the server review record." onClose={()=>setSelected(null)}><Button variant="danger" onClick={async()=>{await removeQueued(selected.clientSaleId);setSelected(null);load();notify('Local provisional sale removed');}}>I have reconciled this sale</Button></Modal>}</>;}
+"use client";
+import { useEffect, useState } from "react";
+import { RefreshCw, Wifi, HardDrive } from "lucide-react";
+import { useApp } from "@/components/providers";
+import {
+  Badge,
+  Button,
+  Empty,
+  Modal,
+  PageHeader,
+  Table,
+} from "@/components/ui";
+import { queuedSales, syncSales, removeQueued } from "@/lib/offline";
+import { api, formatDate, taka } from "@/lib/api";
+export default function Sync() {
+  const { user, notify } = useApp(),
+    [queue, setQueue] = useState<any[]>([]),
+    [reviews, setReviews] = useState<any[]>([]),
+    [busy, setBusy] = useState(false),
+    [selected, setSelected] = useState<any>(null);
+  async function load() {
+    if (!user) return;
+    setQueue(await queuedSales(user.id));
+    if (["OWNER", "AUDITOR"].includes(user.role))
+      try {
+        setReviews(await api("sync/reviews"));
+      } catch {}
+  }
+  useEffect(() => {
+    load();
+    window.addEventListener("pharmacy:queue", load);
+    return () => window.removeEventListener("pharmacy:queue", load);
+  }, [user]);
+  async function sync() {
+    setBusy(true);
+    try {
+      const result = await syncSales(user.id);
+      notify(
+        `${result.filter((s: any) => s.status === "COMPLETED").length} sales synchronized`,
+      );
+      load();
+    } catch (e) {
+      notify((e as Error).message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <PageHeader
+        eyebrow="CONNECTED, EVEN BETWEEN CONNECTIONS"
+        title="Offline sync"
+        description="A transparent view of sales waiting safely on this device."
+        actions={
+          ["OWNER", "PHARMACIST", "CASHIER"].includes(user?.role) && (
+            <Button busy={busy} disabled={!queue.length} onClick={sync}>
+              <RefreshCw size={18} />
+              Sync now
+            </Button>
+          )
+        }
+      />
+      <div className="inline-note">
+        Offline OTC sales are provisional. The server rechecks stock, expiry,
+        prices and margin before accepting them. Keep this browser’s storage
+        intact until every sale is resolved.
+      </div>
+      <section className="panel">
+        <div className="panel-header">
+          <div className="row">
+            <HardDrive size={20} />
+            <h2>This device</h2>
+          </div>
+          <Badge tone="blue">{queue.length} queued</Badge>
+        </div>
+        {queue.length ? (
+          <Table
+            headers={["Client receipt", "Queued", "Payment", "Status", ""]}
+          >
+            {queue.map((s) => (
+              <tr key={s.clientSaleId}>
+                <td>
+                  <strong>#{s.clientSaleId.slice(0, 8).toUpperCase()}</strong>
+                  <small>
+                    {s.lines.length} items{s.reason ? ` · ${s.reason}` : ""}
+                  </small>
+                </td>
+                <td>{formatDate(s.queuedAt)}</td>
+                <td>
+                  {taka(
+                    s.tenders.reduce(
+                      (a: number, t: any) => a + t.amountMinor,
+                      0,
+                    ),
+                  )}
+                </td>
+                <td>
+                  <Badge>{s.status}</Badge>
+                </td>
+                <td>
+                  <Button variant="ghost small" onClick={() => setSelected(s)}>
+                    Resolve locally
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <Empty
+            title="Everything is up to date"
+            description="No sales on this device are waiting to sync."
+          />
+        )}
+      </section>
+      {["OWNER", "AUDITOR"].includes(user?.role) && (
+        <section className="panel mt">
+          <div className="panel-header">
+            <div>
+              <h2>Server review queue</h2>
+              <p>Rejected sync attempts remain visible for reconciliation.</p>
+            </div>
+            <Wifi size={20} />
+          </div>
+          {reviews.length ? (
+            <Table headers={["Client receipt", "Reason", "Status", "Date"]}>
+              {reviews.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.clientSaleId.slice(0, 8).toUpperCase()}</td>
+                  <td style={{ whiteSpace: "normal", maxWidth: 450 }}>
+                    {r.reason}
+                  </td>
+                  <td>
+                    <Badge>{r.status}</Badge>
+                  </td>
+                  <td>{formatDate(r.createdAt)}</td>
+                </tr>
+              ))}
+            </Table>
+          ) : (
+            <Empty title="No server reviews pending" />
+          )}
+        </section>
+      )}
+      {selected && (
+        <Modal
+          title="Remove local provisional sale?"
+          description="Only remove after confirming a refund or a replacement receipt. This does not reverse a payment or delete the server review record."
+          onClose={() => setSelected(null)}
+        >
+          <Button
+            variant="danger"
+            onClick={async () => {
+              await removeQueued(selected.clientSaleId);
+              setSelected(null);
+              load();
+              notify("Local provisional sale removed");
+            }}
+          >
+            I have reconciled this sale
+          </Button>
+        </Modal>
+      )}
+    </>
+  );
+}

@@ -1,8 +1,267 @@
-'use client';
-import {useState} from 'react';
-import {Plus,Check,X,Users} from 'lucide-react';
-import {useResource} from '@/lib/use-resource';
-import {useApp} from '@/components/providers';
-import {Badge,Button,Empty,ErrorState,Form,Loading,Modal,PageHeader,Table} from '@/components/ui';
-import {api,formatDate,post,taka,number} from '@/lib/api';
-export default function Returns(){const {data:returns,error,loading,reload}=useResource<any[]>('returns'),{data:sales}=useResource<any[]>('pos/sales'),{data:batches}=useResource<any[]>('inventory'),{user,notify}=useApp(),[tab,setTab]=useState('returns'),[modal,setModal]=useState(false),[review,setReview]=useState<any>(null),[buyers,setBuyers]=useState<any[]|null>(null);const can=['OWNER','PHARMACIST'].includes(user?.role);async function decide(approve:boolean){try{await post(`returns/${review.id}/review`,{approve});setReview(null);reload();notify(approve?'Return approved and refund recorded':'Return rejected');}catch(e){notify((e as Error).message,true);}}return <><PageHeader eyebrow="CLOSE THE LOOP WITH CARE" title="Returns & recalls" description="A clear process for returns. A complete trail for every recalled batch." actions={['OWNER','PHARMACIST','CASHIER'].includes(user?.role)&&<Button onClick={()=>setModal(true)}><Plus size={18}/>Request return</Button>}/><div className="tabs"><button className={tab==='returns'?'active':''} onClick={()=>setTab('returns')}>Customer returns</button><button className={tab==='recalls'?'active':''} onClick={()=>setTab('recalls')}>Recalled batches</button></div><div className="inline-note">Customer returns cover the full receipt. Refunds are recorded here; issue cash or reverse the original payment through your payment provider.</div>{loading?<Loading/>:error?<ErrorState error={error} retry={reload}/>:<section className="panel">{tab==='returns'?returns?.length?<Table headers={['Receipt / customer','Reason','Status','Refund','Actions']}>{returns.map(ret=><tr key={ret.id}><td><strong>#{ret.saleId.slice(-7).toUpperCase()}</strong><small>{ret.sale.customerName||'Walk-in'} · {formatDate(ret.createdAt)}</small></td><td>{ret.reason}</td><td><Badge>{ret.status}</Badge></td><td>{taka(ret.refundMinor)}</td><td>{can&&ret.status==='REQUESTED'&&<Button variant="secondary small" onClick={()=>setReview(ret)}>Review return</Button>}</td></tr>)}</Table>:<Empty title="No returns to review" description="Return requests and refund records will appear here."/>:batches?.some(b=>b.recalled)?<Table headers={['Medicine','Lot','Status','Stock','Traceability']}>{batches.filter(b=>b.recalled).map(b=><tr key={b.id}><td><strong>{b.medicine.brandName}</strong></td><td>{b.lotNumber}</td><td><Badge>{b.status}</Badge></td><td>{number(b.qtyOnHand)}</td><td>{['OWNER','PHARMACIST','AUDITOR'].includes(user?.role)&&<Button variant="secondary small" onClick={async()=>{try{setBuyers(await api(`recalls/${b.id}/customers`));}catch(e){notify((e as Error).message,true);}}}><Users size={16}/>Trace buyers</Button>}</td></tr>)}</Table>:<Empty title="No recalled batches" description="Freeze a batch from Inventory when a recall is issued."/>}</section>}{modal&&<Modal title="Request a customer return" description="A pharmacist or owner will review the request before stock is restocked or isolated." onClose={()=>setModal(false)}><Form fields={[{name:'saleId',label:'Original receipt',options:(sales||[]).filter(s=>s.status==='COMPLETED').map(s=>({value:s.id,label:`#${s.id.slice(-7).toUpperCase()} · ${s.customerName||'Walk-in'} · ${taka(s.totalMinor)}`})),required:true},{name:'reason',label:'Reason for return',type:'textarea',required:true}]} submit="Request review" onSubmit={async v=>{await post('returns',v);setModal(false);reload();notify('Return requested');}}/></Modal>}{review&&<Modal title="Review return" description={review.reason} onClose={()=>setReview(null)}><div className="stack mb">{review.sale.lines.map((l:any)=><div key={l.id} className="row space-between"><strong>{l.medicine.brandName}</strong><span>{number(l.qty)} units</span></div>)}<h3>Refund: {taka(review.sale.totalMinor)}</h3></div><div className="inline-note">Unexpired active stock returns to the original batch. Blocked stock is recorded as return waste.</div><div className="row space-between"><Button variant="danger" onClick={()=>decide(false)}><X size={17}/>Reject</Button><Button onClick={()=>decide(true)}><Check size={17}/>Approve return</Button></div></Modal>}{buyers&&<Modal title="Recall buyer traceability" onClose={()=>setBuyers(null)}>{buyers.length?<Table headers={['Customer','Contact','Receipt','Quantity']}>{buyers.map(b=><tr key={b.id}><td>{b.saleLine.sale.customerName||'Walk-in, unidentified'}</td><td>{b.saleLine.sale.customerPhone||'Not provided'}</td><td>#{b.saleLine.sale.id.slice(-7).toUpperCase()}</td><td>{number(b.qty)}</td></tr>)}</Table>:<Empty title="No buyers for this batch"/>}</Modal>}</>;}
+"use client";
+import { useState } from "react";
+import { Plus, Check, X, Users } from "lucide-react";
+import { useResource } from "@/lib/use-resource";
+import { useApp } from "@/components/providers";
+import {
+  Badge,
+  Button,
+  Empty,
+  ErrorState,
+  Form,
+  Loading,
+  Modal,
+  PageHeader,
+  Table,
+} from "@/components/ui";
+import { api, formatDate, post, taka, number } from "@/lib/api";
+export default function Returns() {
+  const {
+      data: returns,
+      error,
+      loading,
+      reload,
+    } = useResource<any[]>("returns"),
+    { data: sales } = useResource<any[]>("pos/sales"),
+    { data: batches } = useResource<any[]>("inventory"),
+    { user, notify } = useApp(),
+    [tab, setTab] = useState("returns"),
+    [modal, setModal] = useState(false),
+    [review, setReview] = useState<any>(null),
+    [buyers, setBuyers] = useState<any[] | null>(null);
+  const can = ["OWNER", "PHARMACIST"].includes(user?.role);
+  async function decide(approve: boolean) {
+    try {
+      await post(`returns/${review.id}/review`, { approve });
+      setReview(null);
+      reload();
+      notify(
+        approve ? "Return approved and refund recorded" : "Return rejected",
+      );
+    } catch (e) {
+      notify((e as Error).message, true);
+    }
+  }
+  return (
+    <>
+      <PageHeader
+        eyebrow="CLOSE THE LOOP WITH CARE"
+        title="Returns & recalls"
+        description="A clear process for returns. A complete trail for every recalled batch."
+        actions={
+          ["OWNER", "PHARMACIST", "CASHIER"].includes(user?.role) && (
+            <Button onClick={() => setModal(true)}>
+              <Plus size={18} />
+              Request return
+            </Button>
+          )
+        }
+      />
+      <div className="tabs">
+        <button
+          className={tab === "returns" ? "active" : ""}
+          onClick={() => setTab("returns")}
+        >
+          Customer returns
+        </button>
+        <button
+          className={tab === "recalls" ? "active" : ""}
+          onClick={() => setTab("recalls")}
+        >
+          Recalled batches
+        </button>
+      </div>
+      <div className="inline-note">
+        Customer returns cover the full receipt. Refunds are recorded here;
+        issue cash or reverse the original payment through your payment
+        provider.
+      </div>
+      {loading ? (
+        <Loading />
+      ) : error ? (
+        <ErrorState error={error} retry={reload} />
+      ) : (
+        <section className="panel">
+          {tab === "returns" ? (
+            returns?.length ? (
+              <Table
+                headers={[
+                  "Receipt / customer",
+                  "Reason",
+                  "Status",
+                  "Refund",
+                  "Actions",
+                ]}
+              >
+                {returns.map((ret) => (
+                  <tr key={ret.id}>
+                    <td>
+                      <strong>#{ret.saleId.slice(-7).toUpperCase()}</strong>
+                      <small>
+                        {ret.sale.customerName || "Walk-in"} ·{" "}
+                        {formatDate(ret.createdAt)}
+                      </small>
+                    </td>
+                    <td>{ret.reason}</td>
+                    <td>
+                      <Badge>{ret.status}</Badge>
+                    </td>
+                    <td>{taka(ret.refundMinor)}</td>
+                    <td>
+                      {can && ret.status === "REQUESTED" && (
+                        <Button
+                          variant="secondary small"
+                          onClick={() => setReview(ret)}
+                        >
+                          Review return
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            ) : (
+              <Empty
+                title="No returns to review"
+                description="Return requests and refund records will appear here."
+              />
+            )
+          ) : batches?.some((b) => b.recalled) ? (
+            <Table
+              headers={["Medicine", "Lot", "Status", "Stock", "Traceability"]}
+            >
+              {batches
+                .filter((b) => b.recalled)
+                .map((b) => (
+                  <tr key={b.id}>
+                    <td>
+                      <strong>{b.medicine.brandName}</strong>
+                    </td>
+                    <td>{b.lotNumber}</td>
+                    <td>
+                      <Badge>{b.status}</Badge>
+                    </td>
+                    <td>{number(b.qtyOnHand)}</td>
+                    <td>
+                      {["OWNER", "PHARMACIST", "AUDITOR"].includes(
+                        user?.role,
+                      ) && (
+                        <Button
+                          variant="secondary small"
+                          onClick={async () => {
+                            try {
+                              setBuyers(await api(`recalls/${b.id}/customers`));
+                            } catch (e) {
+                              notify((e as Error).message, true);
+                            }
+                          }}
+                        >
+                          <Users size={16} />
+                          Trace buyers
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+            </Table>
+          ) : (
+            <Empty
+              title="No recalled batches"
+              description="Freeze a batch from Inventory when a recall is issued."
+            />
+          )}
+        </section>
+      )}
+      {modal && (
+        <Modal
+          title="Request a customer return"
+          description="A pharmacist or owner will review the request before stock is restocked or isolated."
+          onClose={() => setModal(false)}
+        >
+          <Form
+            fields={[
+              {
+                name: "saleId",
+                label: "Original receipt",
+                options: (sales || [])
+                  .filter((s) => s.status === "COMPLETED")
+                  .map((s) => ({
+                    value: s.id,
+                    label: `#${s.id.slice(-7).toUpperCase()} · ${s.customerName || "Walk-in"} · ${taka(s.totalMinor)}`,
+                  })),
+                required: true,
+              },
+              {
+                name: "reason",
+                label: "Reason for return",
+                type: "textarea",
+                required: true,
+              },
+            ]}
+            submit="Request review"
+            onSubmit={async (v) => {
+              await post("returns", v);
+              setModal(false);
+              reload();
+              notify("Return requested");
+            }}
+          />
+        </Modal>
+      )}
+      {review && (
+        <Modal
+          title="Review return"
+          description={review.reason}
+          onClose={() => setReview(null)}
+        >
+          <div className="stack mb">
+            {review.sale.lines.map((l: any) => (
+              <div key={l.id} className="row space-between">
+                <strong>{l.medicine.brandName}</strong>
+                <span>{number(l.qty)} units</span>
+              </div>
+            ))}
+            <h3>Refund: {taka(review.sale.totalMinor)}</h3>
+          </div>
+          <div className="inline-note">
+            Unexpired active stock returns to the original batch. Blocked stock
+            is recorded as return waste.
+          </div>
+          <div className="row space-between">
+            <Button variant="danger" onClick={() => decide(false)}>
+              <X size={17} />
+              Reject
+            </Button>
+            <Button onClick={() => decide(true)}>
+              <Check size={17} />
+              Approve return
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {buyers && (
+        <Modal
+          title="Recall buyer traceability"
+          onClose={() => setBuyers(null)}
+        >
+          {buyers.length ? (
+            <Table headers={["Customer", "Contact", "Receipt", "Quantity"]}>
+              {buyers.map((b) => (
+                <tr key={b.id}>
+                  <td>
+                    {b.saleLine.sale.customerName || "Walk-in, unidentified"}
+                  </td>
+                  <td>{b.saleLine.sale.customerPhone || "Not provided"}</td>
+                  <td>#{b.saleLine.sale.id.slice(-7).toUpperCase()}</td>
+                  <td>{number(b.qty)}</td>
+                </tr>
+              ))}
+            </Table>
+          ) : (
+            <Empty title="No buyers for this batch" />
+          )}
+        </Modal>
+      )}
+    </>
+  );
+}
