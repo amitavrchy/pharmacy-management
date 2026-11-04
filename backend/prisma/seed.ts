@@ -1,10 +1,9 @@
 import 'dotenv/config';
-import {PrismaClient} from '@prisma/client';
 import {hashPassword} from '../src/auth/password';
 import {dateUTC,shopDate} from '../src/common/domain';
 import {maintenance} from '../src/jobs/maintenance';
 import {Db} from '../src/db/prisma.service';
-const db=new PrismaClient();
+const db=new Db();
 const catalog=[
  ['Paracetamol','Analgesic','Napa','Beximco','500 mg','OTC',120],['Paracetamol','Analgesic','Ace','Square','500 mg','OTC',120],
  ['Omeprazole','Gastrointestinal','Seclo','Square','20 mg','OTC',600],['Esomeprazole','Gastrointestinal','Maxpro','Renata','20 mg','OTC',700],
@@ -33,7 +32,7 @@ async function seed(){
   }
   for(const [id,name] of [['supplier-1','Square Pharmaceuticals'],['supplier-2','Beximco Pharma'],['supplier-3','Incepta Distribution']]) await db.supplier.upsert({where:{id},create:{id,shopId:shop.id,name,phone:'+880 1800 000000',address:'Dhaka, Bangladesh'},update:{}});
   await db.prescription.upsert({where:{id:'rx-demo'},create:{id:'rx-demo',shopId:shop.id,rxNumber:`RX-${shopDate().replaceAll('-','')}-001`,doctorName:'Dr. Farhana Islam',patientName:'Rahim Uddin',patientPhone:'+880 1712 345678',items:{create:[{medicineId:'med-7',qtyPrescribed:21},{medicineId:'med-3',qtyPrescribed:14}]}},update:{}});
-  await maintenance(db as Db);
+  await maintenance(db);
   console.log('Seed ready: 100 fictional medicine SKUs, 200 batches, five role accounts. Not clinical or regulatory reference data.');
 }
 seed().finally(()=>db.$disconnect());
