@@ -1,0 +1,55 @@
+name: Pharmacy quality checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pharmacy
+          POSTGRES_PASSWORD: ci-only-database-password
+          POSTGRES_DB: pharmacy
+        ports: [5436:5432]
+        options: >-
+          --health-cmd "pg_isready -U pharmacy"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: [6386:6379]
+    env:
+      DATABASE_URL: postgresql://pharmacy:ci-only-database-password@localhost:5436/pharmacy
+      REDIS_URL: redis://localhost:6386
+      JWT_SECRET: ci-only-signing-secret-never-use-outside-ci-123456
+      SEED_PASSWORD: ci-only-seed-password-1234
+      CORS_ORIGINS: http://localhost:3217
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run setup
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm audit --omit=dev
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-evidence
+          path: test-results/
+          retention-days: 7
