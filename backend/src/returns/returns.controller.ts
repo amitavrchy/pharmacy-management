@@ -4,6 +4,7 @@ import { Roles } from "../auth/auth";
 import { id, parse, text, z } from "../common/validation";
 import { dateUTC, requireThat } from "../common/domain";
 import { audit } from "../common/audit";
+import { tenderAmount } from "../operations/finance.service";
 @Controller("returns")
 export class ReturnsController {
   constructor(private readonly db: Db) {}
@@ -111,6 +112,50 @@ export class ReturnsController {
         where: { id: ret.saleId },
         data: { status: "RETURNED" },
       });
+      if (ret.sale.customerId) {
+        const credit = tenderAmount(ret.sale.tenders, "CREDIT");
+        const customer = await tx.customer.findUniqueOrThrow({
+          where: { id: ret.sale.customerId },
+        });
+        await tx.customer.update({
+          where: { id: customer.id },
+          data: {
+            balanceMinor: { decrement: credit },
+            loyaltyPoints: Math.max(
+              0,
+              customer.loyaltyPoints - Math.floor(ret.sale.totalMinor / 10000),
+            ),
+          },
+        });
+        if (credit)
+          await tx.customerLedger.create({
+            data: {
+              customerId: customer.id,
+              kind: "RETURN_CREDIT",
+              amountMinor: -credit,
+              reference: `return:${ret.id}`,
+              note: `Credit reversed for ${ret.saleId}`,
+              actorId: r.user.id,
+            },
+          });
+      }
+      if (ret.sale.shiftId) {
+        const shift = await tx.registerShift.findUnique({
+          where: { id: ret.sale.shiftId },
+        });
+        const cash = tenderAmount(ret.sale.tenders, "CASH");
+        if (shift?.status === "OPEN" && cash)
+          await tx.cashMovement.create({
+            data: {
+              shiftId: shift.id,
+              kind: "REFUND",
+              amountMinor: cash,
+              reference: `return:${ret.id}`,
+              note: "Approved cash refund; issue refund to customer",
+              actorId: r.user.id,
+            },
+          });
+      }
       await audit(tx, r.user, "return.restocked", ret.id, {
         refundMinor: ret.sale.totalMinor,
       });

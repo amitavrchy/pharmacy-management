@@ -2,6 +2,8 @@ import { id, minor, quantity, text, z } from "../common/validation";
 export const saleSchema = z.object({
   clientSaleId: z.uuid(),
   prescriptionId: id.optional(),
+  customerId: id.optional(),
+  shiftId: id.optional(),
   customerName: z.string().max(100).optional(),
   customerPhone: z.string().max(30).optional(),
   lines: z
@@ -19,7 +21,7 @@ export const saleSchema = z.object({
   tenders: z
     .array(
       z.object({
-        method: z.enum(["CASH", "BKASH", "NAGAD", "CARD"]),
+        method: z.enum(["CASH", "BKASH", "NAGAD", "CARD", "CREDIT"]),
         amountMinor: minor,
       }),
     )

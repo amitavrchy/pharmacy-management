@@ -5,6 +5,7 @@ import { Actor, D, money, requireThat } from "../common/domain";
 import { audit } from "../common/audit";
 import { verifyPassword } from "../auth/password";
 import { SaleInput } from "./sale.schema";
+import { tenderAmount, validateShift } from "../operations/finance.service";
 @Injectable()
 export class SalesService {
   constructor(
@@ -119,6 +120,27 @@ export class SalesService {
         "Discount exceeds subtotal",
       );
       const totalMinor = subtotalMinor - input.discountMinor;
+      if (input.shiftId) await validateShift(tx, actor, input.shiftId);
+      const credit = tenderAmount(input.tenders, "CREDIT");
+      let registeredCustomer = null;
+      if (input.customerId) {
+        await tx.$queryRaw`SELECT id FROM "Customer" WHERE id=${input.customerId} FOR UPDATE`;
+        registeredCustomer = await tx.customer.findFirst({
+          where: { id: input.customerId, shopId: actor.shopId, active: true },
+        });
+        requireThat(registeredCustomer, "Active customer not found");
+      }
+      if (credit > 0) {
+        requireThat(
+          registeredCustomer,
+          "Select a registered customer for credit",
+        );
+        requireThat(
+          credit + registeredCustomer.balanceMinor <=
+            registeredCustomer.creditLimitMinor,
+          "Customer credit limit exceeded",
+        );
+      }
       requireThat(
         input.tenders.reduce((s, t) => s + t.amountMinor, 0) === totalMinor,
         "Tender total must match the payable amount",
@@ -150,10 +172,16 @@ export class SalesService {
         data: {
           shopId: actor.shopId,
           cashierId: actor.id,
+          customerId: input.customerId,
+          shiftId: input.shiftId,
           clientSaleId: input.clientSaleId,
           prescriptionId: input.prescriptionId,
-          customerName: input.customerName || rx?.patientName,
-          customerPhone: input.customerPhone || rx?.patientPhone,
+          customerName:
+            input.customerName || registeredCustomer?.name || rx?.patientName,
+          customerPhone:
+            input.customerPhone ||
+            registeredCustomer?.phone ||
+            rx?.patientPhone,
           subtotalMinor,
           totalMinor,
           discountMinor: input.discountMinor,
@@ -177,6 +205,26 @@ export class SalesService {
           where: { id: itemId },
           data: { qtyDispensed: { increment: qty } },
         });
+      if (registeredCustomer) {
+        await tx.customer.update({
+          where: { id: registeredCustomer.id },
+          data: {
+            balanceMinor: { increment: credit },
+            loyaltyPoints: { increment: Math.floor(totalMinor / 10000) },
+          },
+        });
+        if (credit)
+          await tx.customerLedger.create({
+            data: {
+              customerId: registeredCustomer.id,
+              kind: "CHARGE",
+              amountMinor: credit,
+              reference: `sale:${input.clientSaleId}`,
+              note: `Receipt ${sale.id}`,
+              actorId: actor.id,
+            },
+          });
+      }
       if (rx && usedRx.size) {
         const items = await tx.prescriptionItem.findMany({
           where: { prescriptionId: rx.id },
