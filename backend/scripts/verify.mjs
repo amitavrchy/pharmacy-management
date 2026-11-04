@@ -6,9 +6,10 @@ const tasks = [
   ["run", "db:seed"],
   ["run", "check"],
   ["test"],
-  ["run", "build"],
   ["--prefix", "../frontend", "run", "build"],
   ["--prefix", "../frontend", "run", "test:e2e"],
+  ["audit", "--omit=dev"],
+  ["--prefix", "../frontend", "audit", "--omit=dev"],
 ];
 for (const args of tasks) {
   const result = spawnSync(npm, args, {
