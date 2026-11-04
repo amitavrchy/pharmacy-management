@@ -23,6 +23,9 @@ jobs:
       redis:
         image: redis:7-alpine
         ports: [6386:6379]
+    defaults:
+      run:
+        working-directory: backend
     env:
       DATABASE_URL: postgresql://pharmacy:ci-only-database-password@localhost:5436/pharmacy
       REDIS_URL: redis://localhost:6386
@@ -36,7 +39,11 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
       - run: npm ci
+      - run: npm --prefix ../frontend ci
       - run: npm run setup
       - run: npm run db:generate
       - run: npm run db:migrate
@@ -44,12 +51,13 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npm --prefix ../frontend exec -- playwright install --with-deps chromium
+      - run: npm --prefix ../frontend run build
+      - run: npm --prefix ../frontend run test:e2e
       - run: npm audit --omit=dev
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: browser-failure-evidence
-          path: test-results/
+          path: frontend/test-results/
           retention-days: 7

@@ -13,12 +13,12 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: "npm run start -w backend",
+      command: "npm --prefix ../backend run start",
       url: "http://127.0.0.1:4217/health",
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: "npm run start -w frontend",
+      command: "npm run start",
       url: "http://localhost:3217/login",
       reuseExistingServer: !process.env.CI,
       timeout: 120000,

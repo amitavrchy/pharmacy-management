@@ -21,8 +21,12 @@ The original spec is preserved. Checks describe implemented behavior, not clinic
 | Prescription / purchase UI             | Capture/verify/partial dispense and draft/place/receive workflows          |
 | Offline queue                          | Browser connection loss, IndexedDB queue and reconnect sync                |
 
-Run the verification commands in README. Screenshots and failure traces go to ignored `artifacts/` and `test-results/`. GitHub Actions verifies builds, database tests, Chromium workflows and dependency auditing on a fresh database. Check remote run status after push; a local pass does not imply remote completion.
+Run the verification commands in README. Screenshots and failure traces go to ignored `artifacts/` and `test-results/`. The automation template verifies builds, database tests, Chromium workflows and dependency auditing on a fresh database. It is stored under backend/automation because the root must contain only two folders; GitHub does not auto-run it there. Run npm run verify from backend.
 
 Before live use, configure the real license/catalog, staff credentials, HTTPS/origin, database privileges, tax rules, payment/refund procedures, backup/restore and supervised services. No healthcare, payment, SMS or email service is connected.
 
-Local verification: 19 backend tests and 6 Chromium workflows passed; production build and strict TypeScript checks passed; npm audit --omit=dev reported zero vulnerabilities. BullMQ startup completed without failed jobs and registered one hourly scheduler.
+Previous release verification: 19 backend tests and 6 Chromium workflows passed; production build and strict TypeScript checks passed; npm audit --omit=dev reported zero vulnerabilities. BullMQ startup completed without failed jobs and registered one hourly scheduler.
+
+Advanced release verification covers credit limits/collections/refunds, cash shift variance, supplier invoice payment idempotency, warehouse transfer conservation, cold-chain holds and separate release, delivery transitions/proof, consent-gated refill tasks and pack-rounded forecast orders. Browser checks include all 15 workspace views at a minimum 14px text size and responsive layouts.
+
+Current release: 29 backend tests and 11 Chromium workflow tests passed locally. Both independent application production builds and TypeScript checks passed, and each dependency audit reported zero vulnerabilities. Root directory verification allows only frontend/, backend/, and Git internal metadata.

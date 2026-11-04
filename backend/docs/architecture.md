@@ -53,3 +53,15 @@ The server reads prices. Rx lines need `prescriptionItemId`, with sale-level `pr
 ## Boundaries
 
 Returns cover whole receipts. Refund records do not settle payments. Sync is explicit, not automatic background sync. Tax defaults to zero. Catalog data is fictional; import does not connect to DGDA. Images use DB rather than S3. HL7 is an interface, not a hospital connection. Shop provisioning is operator-managed. The workspace does not offer public registration or external email/SMS integrations.
+
+## Advanced operations
+
+- Customer balances, collections and sale-return credits are serialized on the customer account. Unique references prevent duplicate collections. Loyalty accrues at one point per completed ?100. Owner authorization controls credit limits; pharmacist/owner gates protect recorded care notes.
+- Register shifts reconcile opening float, linked POS cash, collections and cash movements minus expenses, supplier payments and recorded refunds. Closing freezes expected/count/variance. Only a cashier or owner can post to the appropriate open shift. Refunds on closed shifts need a separate current-drawer movement.
+- Supplier invoices track original total, cumulative payments, remaining due and due-date ageing. This is operational payable/receivable tracking, not a full general-ledger accounting system.
+- Transfers remove quantity at dispatch and add it only at receipt. Warehouses do not feed POS unless configured as dispensing locations. Recall freezes matching medicine/lot/expiry across locations and traces customer allocations across those copies.
+- Out-of-range manual temperature readings quarantine storage and all active stock. An in-range recheck plus pharmacist location review does not release batches; each batch needs a separate documented disposition.
+- Delivery follows QUEUED ? ASSIGNED ? OUT_FOR_DELIVERY ? DELIVERED/FAILED; completed delivery requires recipient proof. Follow-up tasks require customer contact consent and staff-recorded outcomes. No external messages are sent.
+- Forecasting uses 30-day completed-sale demand, target/lead days, reorder floor and whole-pack rounding. ABC classes use 90-day revenue and FSN uses last-sale recency. All estimates and draft orders require operational review.
+
+API namespaces: /customers, /finance, /stock-control, /fulfillment and /intelligence. Each mutation validates payloads, shop ownership, role and state transitions and records an audit event. New routes are exercised through real PostgreSQL HTTP integration tests and browser workflows.

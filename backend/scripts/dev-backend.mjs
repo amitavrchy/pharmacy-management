@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 const run = (args) => spawn(process.execPath, args, { stdio: "inherit" });
-const build = run(["../node_modules/typescript/bin/tsc"]);
+const build = run(["node_modules/typescript/bin/tsc"]);
 build.on("exit", (code) => {
   if (code) process.exit(code);
   const compiler = run([
-    "../node_modules/typescript/bin/tsc",
+    "node_modules/typescript/bin/tsc",
     "--watch",
     "--preserveWatchOutput",
   ]);

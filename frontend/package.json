@@ -6,7 +6,9 @@
     "dev": "next dev -p 3217",
     "build": "next build",
     "start": "next start -p 3217",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:browser-install": "playwright install chromium"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",
@@ -22,6 +24,8 @@
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "prettier": "^3.9.10"
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "@playwright/test": "^1.58.2"
   }
 }

@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { mkdirSync } from "node:fs";
+import { createOTC } from "./fixtures";
 const password =
   process.env.SEED_PASSWORD ||
-  readFileSync("backend/.env", "utf8").match(/^SEED_PASSWORD=(.+)$/m)?.[1];
+  readFileSync("../backend/.env", "utf8").match(/^SEED_PASSWORD=(.+)$/m)?.[1];
 test.beforeEach(async ({ page }, info) => {
   await page.goto("/login");
   if (info.title.startsWith("all workspace")) {
@@ -39,6 +40,11 @@ test("all workspace views load and visible text is at least 14px", async ({
     ["/reports", "Reports"],
     ["/sync", "Offline sync"],
     ["/settings", "Settings & team"],
+    ["/customers", "Customers & accounts"],
+    ["/finance", "Finance & registers"],
+    ["/stock-control", "Stock control center"],
+    ["/fulfillment", "Delivery & follow-up"],
+    ["/intelligence", "Business intelligence"],
   ]) {
     await page.goto(href);
     await expect(
@@ -62,9 +68,16 @@ test("all workspace views load and visible text is at least 14px", async ({
   }
 });
 test("OTC sale produces receipt and stock updates", async ({ page }) => {
+  const { brandName } = await createOTC(page);
   await page.goto("/pos");
-  await page.getByPlaceholder("Scan barcode or search medicine…").fill("Napa");
-  await page.getByRole("button").filter({ hasText: /Napa/ }).first().click();
+  await page
+    .getByPlaceholder("Scan barcode or search medicine…")
+    .fill(brandName);
+  await page
+    .locator(".medicine-card")
+    .filter({ hasText: brandName })
+    .first()
+    .click();
   await page.getByRole("button", { name: "Complete sale" }).click();
   await expect(
     page.getByRole("heading", { name: "Sale completed", exact: true }),
@@ -178,11 +191,14 @@ test("offline OTC queue survives navigation and synchronizes once reconnected", 
   page,
   context,
 }) => {
+  const { brandName } = await createOTC(page);
   await page.goto("/pos");
-  await page.getByPlaceholder("Scan barcode or search medicine…").fill("Napa");
+  await page
+    .getByPlaceholder("Scan barcode or search medicine…")
+    .fill(brandName);
   await page
     .locator(".medicine-card")
-    .filter({ hasText: /Napa/ })
+    .filter({ hasText: brandName })
     .first()
     .click();
   await context.setOffline(true);
