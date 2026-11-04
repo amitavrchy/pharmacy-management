@@ -1,10 +1,12 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
+
 enum Role {
   OWNER
   PHARMACIST
@@ -12,253 +14,278 @@ enum Role {
   STORE_KEEPER
   AUDITOR
 }
+
 model Shop {
-  id String @id @default(cuid())
-  name String
-  drugLicenseNo String?
-  address String @default("")
-  phone String @default("")
-  timezone String @default("Asia/Dhaka")
-  currency String @default("BDT")
-  requirePharmacistForRx Boolean @default(true)
-  saleWithoutBatchScan Boolean @default(true)
-  minMarginBps Int @default(500)
-  returnDays Int @default(7)
-  users User[]
-  medicines Medicine[]
-  suppliers Supplier[]
-  batches StockBatch[]
-  prescriptions Prescription[]
-  sales Sale[]
-  alerts Alert[]
-  audit AuditEntry[]
+  id                     String         @id @default(cuid())
+  name                   String
+  drugLicenseNo          String?
+  address                String         @default("")
+  phone                  String         @default("")
+  timezone               String         @default("Asia/Dhaka")
+  currency               String         @default("BDT")
+  requirePharmacistForRx Boolean        @default(true)
+  saleWithoutBatchScan   Boolean        @default(true)
+  minMarginBps           Int            @default(500)
+  returnDays             Int            @default(7)
+  users                  User[]
+  medicines              Medicine[]
+  suppliers              Supplier[]
+  batches                StockBatch[]
+  prescriptions          Prescription[]
+  sales                  Sale[]
+  alerts                 Alert[]
+  audit                  AuditEntry[]
 }
+
 model User {
-  id String @id @default(cuid())
-  shopId String
-  shop Shop @relation(fields:[shopId],references:[id])
-  name String
-  email String @unique
-  role Role
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id])
+  name         String
+  email        String   @unique
+  role         Role
   passwordHash String
-  pinHash String?
-  active Boolean @default(true)
-  createdAt DateTime @default(now())
+  pinHash      String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
 }
+
 model Generic {
-  id String @id @default(cuid())
-  name String @unique
+  id               String     @id @default(cuid())
+  name             String     @unique
   therapeuticClass String?
-  medicines Medicine[]
+  medicines        Medicine[]
 }
+
 model Medicine {
-  id String @id @default(cuid())
-  shopId String
-  shop Shop @relation(fields:[shopId],references:[id])
-  genericId String
-  generic Generic @relation(fields:[genericId],references:[id])
-  brandName String
+  id           String              @id @default(cuid())
+  shopId       String
+  shop         Shop                @relation(fields: [shopId], references: [id])
+  genericId    String
+  generic      Generic             @relation(fields: [genericId], references: [id])
+  brandName    String
   manufacturer String
-  strength String
-  form String
-  packSize Int @default(1)
-  barcode String? @unique
-  schedule String @default("OTC")
-  unitName String @default("pcs")
-  priceMinor Int
-  reorderLevel Decimal @default(50) @db.Decimal(14,3)
-  active Boolean @default(true)
-  batches StockBatch[]
-  saleLines SaleLine[]
-  rxItems PrescriptionItem[]
-  poLines PurchaseOrderLine[]
-  @@index([shopId,genericId])
+  strength     String
+  form         String
+  packSize     Int                 @default(1)
+  barcode      String?             @unique
+  schedule     String              @default("OTC")
+  unitName     String              @default("pcs")
+  priceMinor   Int
+  reorderLevel Decimal             @default(50) @db.Decimal(14, 3)
+  active       Boolean             @default(true)
+  batches      StockBatch[]
+  saleLines    SaleLine[]
+  rxItems      PrescriptionItem[]
+  poLines      PurchaseOrderLine[]
+
+  @@index([shopId, genericId])
 }
+
 model StockBatch {
-  id String @id @default(cuid())
-  shopId String
-  shop Shop @relation(fields:[shopId],references:[id])
-  medicineId String
-  medicine Medicine @relation(fields:[medicineId],references:[id])
-  lotNumber String
-  expiryDate DateTime @db.Date
-  qtyOnHand Decimal @db.Decimal(14,3)
-  costMinor Int
-  rack String @default("")
-  status String @default("ACTIVE")
-  recalled Boolean @default(false)
-  allocations SaleLineBatch[]
-  movements StockMovement[]
+  id           String             @id @default(cuid())
+  shopId       String
+  shop         Shop               @relation(fields: [shopId], references: [id])
+  medicineId   String
+  medicine     Medicine           @relation(fields: [medicineId], references: [id])
+  lotNumber    String
+  expiryDate   DateTime           @db.Date
+  qtyOnHand    Decimal            @db.Decimal(14, 3)
+  costMinor    Int
+  rack         String             @default("")
+  status       String             @default("ACTIVE")
+  recalled     Boolean            @default(false)
+  allocations  SaleLineBatch[]
+  movements    StockMovement[]
   receiptLines GoodsReceiptLine[]
-  @@index([shopId,medicineId,expiryDate])
-  @@unique([shopId,medicineId,lotNumber,expiryDate])
+
+  @@unique([shopId, medicineId, lotNumber, expiryDate])
+  @@index([shopId, medicineId, expiryDate])
 }
+
 model Supplier {
-  id String @id @default(cuid())
-  shopId String
-  shop Shop @relation(fields:[shopId],references:[id])
-  name String
-  phone String?
-  email String?
+  id      String          @id @default(cuid())
+  shopId  String
+  shop    Shop            @relation(fields: [shopId], references: [id])
+  name    String
+  phone   String?
+  email   String?
   address String?
-  orders PurchaseOrder[]
+  orders  PurchaseOrder[]
 }
+
 model PurchaseOrder {
-  id String @id @default(cuid())
-  shopId String
+  id         String              @id @default(cuid())
+  shopId     String
   supplierId String
-  supplier Supplier @relation(fields:[supplierId],references:[id])
-  status String @default("DRAFT")
-  notes String @default("")
-  createdAt DateTime @default(now())
-  lines PurchaseOrderLine[]
-  receipts GoodsReceiptLine[]
-  @@index([shopId,createdAt])
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  status     String              @default("DRAFT")
+  notes      String              @default("")
+  createdAt  DateTime            @default(now())
+  lines      PurchaseOrderLine[]
+  receipts   GoodsReceiptLine[]
+
+  @@index([shopId, createdAt])
 }
+
 model PurchaseOrderLine {
-  id String @id @default(cuid())
-  poId String
-  po PurchaseOrder @relation(fields:[poId],references:[id])
-  medicineId String
-  medicine Medicine @relation(fields:[medicineId],references:[id])
-  qty Decimal @db.Decimal(14,3)
-  receivedQty Decimal @default(0) @db.Decimal(14,3)
-  costMinor Int
+  id          String        @id @default(cuid())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id])
+  medicineId  String
+  medicine    Medicine      @relation(fields: [medicineId], references: [id])
+  qty         Decimal       @db.Decimal(14, 3)
+  receivedQty Decimal       @default(0) @db.Decimal(14, 3)
+  costMinor   Int
 }
+
 model GoodsReceiptLine {
-  id String @id @default(cuid())
-  poId String
-  po PurchaseOrder @relation(fields:[poId],references:[id])
+  id         String        @id @default(cuid())
+  poId       String
+  po         PurchaseOrder @relation(fields: [poId], references: [id])
   medicineId String
-  lotNumber String
-  expiryDate DateTime @db.Date
-  qty Decimal @db.Decimal(14,3)
-  costMinor Int
-  batchId String
-  batch StockBatch @relation(fields:[batchId],references:[id])
-  createdAt DateTime @default(now())
+  lotNumber  String
+  expiryDate DateTime      @db.Date
+  qty        Decimal       @db.Decimal(14, 3)
+  costMinor  Int
+  batchId    String
+  batch      StockBatch    @relation(fields: [batchId], references: [id])
+  createdAt  DateTime      @default(now())
 }
+
 model Prescription {
-  id String @id @default(cuid())
-  shopId String
-  shop Shop @relation(fields:[shopId],references:[id])
-  rxNumber String
-  doctorName String
-  patientName String
+  id           String             @id @default(cuid())
+  shopId       String
+  shop         Shop               @relation(fields: [shopId], references: [id])
+  rxNumber     String
+  doctorName   String
+  patientName  String
   patientPhone String?
-  imageData String?
-  status String @default("CAPTURED")
-  verifiedBy String?
-  capturedAt DateTime @default(now())
-  items PrescriptionItem[]
-  sales Sale[]
-  @@index([shopId,capturedAt])
+  imageData    String?
+  status       String             @default("CAPTURED")
+  verifiedBy   String?
+  capturedAt   DateTime           @default(now())
+  items        PrescriptionItem[]
+  sales        Sale[]
+
+  @@index([shopId, capturedAt])
 }
+
 model PrescriptionItem {
-  id String @id @default(cuid())
-  prescriptionId String
-  prescription Prescription @relation(fields:[prescriptionId],references:[id])
-  medicineId String
-  medicine Medicine @relation(fields:[medicineId],references:[id])
-  qtyPrescribed Decimal @db.Decimal(14,3)
-  qtyDispensed Decimal @default(0) @db.Decimal(14,3)
-  dispenseAsWritten Boolean @default(false)
-  saleLines SaleLine[]
+  id                String       @id @default(cuid())
+  prescriptionId    String
+  prescription      Prescription @relation(fields: [prescriptionId], references: [id])
+  medicineId        String
+  medicine          Medicine     @relation(fields: [medicineId], references: [id])
+  qtyPrescribed     Decimal      @db.Decimal(14, 3)
+  qtyDispensed      Decimal      @default(0) @db.Decimal(14, 3)
+  dispenseAsWritten Boolean      @default(false)
+  saleLines         SaleLine[]
 }
+
 model Sale {
-  id String @id @default(cuid())
-  shopId String
-  shop Shop @relation(fields:[shopId],references:[id])
-  cashierId String
-  clientSaleId String @unique
-  prescriptionId String?
-  prescription Prescription? @relation(fields:[prescriptionId],references:[id])
-  customerName String?
-  customerPhone String?
-  status String @default("COMPLETED")
-  totalMinor Int
-  subtotalMinor Int
-  discountMinor Int @default(0)
-  tenders Json
-  substitutionConsent Boolean @default(false)
-  witness String?
-  completedAt DateTime @default(now())
-  lines SaleLine[]
-  returns SaleReturn[]
-  @@index([shopId,completedAt])
+  id                  String        @id @default(cuid())
+  shopId              String
+  shop                Shop          @relation(fields: [shopId], references: [id])
+  cashierId           String
+  clientSaleId        String        @unique
+  prescriptionId      String?
+  prescription        Prescription? @relation(fields: [prescriptionId], references: [id])
+  customerName        String?
+  customerPhone       String?
+  status              String        @default("COMPLETED")
+  totalMinor          Int
+  subtotalMinor       Int
+  discountMinor       Int           @default(0)
+  tenders             Json
+  substitutionConsent Boolean       @default(false)
+  witness             String?
+  completedAt         DateTime      @default(now())
+  lines               SaleLine[]
+  returns             SaleReturn[]
+
+  @@index([shopId, completedAt])
 }
+
 model SaleLine {
-  id String @id @default(cuid())
-  saleId String
-  sale Sale @relation(fields:[saleId],references:[id])
-  medicineId String
-  medicine Medicine @relation(fields:[medicineId],references:[id])
-  qty Decimal @db.Decimal(14,3)
-  unitPriceMinor Int
+  id                 String            @id @default(cuid())
+  saleId             String
+  sale               Sale              @relation(fields: [saleId], references: [id])
+  medicineId         String
+  medicine           Medicine          @relation(fields: [medicineId], references: [id])
+  qty                Decimal           @db.Decimal(14, 3)
+  unitPriceMinor     Int
   prescriptionItemId String?
-  prescriptionItem PrescriptionItem? @relation(fields:[prescriptionItemId],references:[id])
-  batches SaleLineBatch[]
+  prescriptionItem   PrescriptionItem? @relation(fields: [prescriptionItemId], references: [id])
+  batches            SaleLineBatch[]
 }
+
 model SaleLineBatch {
-  id String @id @default(cuid())
-  saleLineId String
-  saleLine SaleLine @relation(fields:[saleLineId],references:[id])
-  batchId String
-  batch StockBatch @relation(fields:[batchId],references:[id])
-  qty Decimal @db.Decimal(14,3)
-  returnedQty Decimal @default(0) @db.Decimal(14,3)
-  costMinor Int
+  id          String     @id @default(cuid())
+  saleLineId  String
+  saleLine    SaleLine   @relation(fields: [saleLineId], references: [id])
+  batchId     String
+  batch       StockBatch @relation(fields: [batchId], references: [id])
+  qty         Decimal    @db.Decimal(14, 3)
+  returnedQty Decimal    @default(0) @db.Decimal(14, 3)
+  costMinor   Int
 }
+
 model SaleReturn {
-  id String @id @default(cuid())
-  saleId String
-  sale Sale @relation(fields:[saleId],references:[id])
-  status String @default("REQUESTED")
-  reason String
+  id          String   @id @default(cuid())
+  saleId      String
+  sale        Sale     @relation(fields: [saleId], references: [id])
+  status      String   @default("REQUESTED")
+  reason      String
   requestedBy String
-  approvedBy String?
-  refundMinor Int @default(0)
-  createdAt DateTime @default(now())
+  approvedBy  String?
+  refundMinor Int      @default(0)
+  createdAt   DateTime @default(now())
 }
+
 model StockMovement {
-  id String @id @default(cuid())
-  batchId String
-  batch StockBatch @relation(fields:[batchId],references:[id])
-  type String
-  qty Decimal @db.Decimal(14,3)
-  refType String?
-  refId String?
-  note String?
-  createdAt DateTime @default(now())
+  id        String     @id @default(cuid())
+  batchId   String
+  batch     StockBatch @relation(fields: [batchId], references: [id])
+  type      String
+  qty       Decimal    @db.Decimal(14, 3)
+  refType   String?
+  refId     String?
+  note      String?
+  createdAt DateTime   @default(now())
 }
+
 model Alert {
-  id String @id @default(cuid())
-  shopId String
-  shop Shop @relation(fields:[shopId],references:[id])
-  type String
-  key String @unique
-  payload Json
+  id         String    @id @default(cuid())
+  shopId     String
+  shop       Shop      @relation(fields: [shopId], references: [id])
+  type       String
+  key        String    @unique
+  payload    Json
   resolvedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt  DateTime  @default(now())
 }
+
 model AuditEntry {
-  id String @id @default(cuid())
-  shopId String
-  shop Shop @relation(fields:[shopId],references:[id])
-  actorId String
-  action String
-  entityId String
-  details Json
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id])
+  actorId   String
+  action    String
+  entityId  String
+  details   Json
   createdAt DateTime @default(now())
-  @@index([shopId,createdAt])
+
+  @@index([shopId, createdAt])
 }
+
 model SyncReview {
-  id String @id @default(cuid())
-  shopId String
-  clientSaleId String @unique
-  actorId String
-  payload Json
-  reason String
-  status String @default("PENDING_REVIEW")
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  shopId       String
+  clientSaleId String   @unique
+  actorId      String
+  payload      Json
+  reason       String
+  status       String   @default("PENDING_REVIEW")
+  createdAt    DateTime @default(now())
 }
