@@ -17,7 +17,18 @@ export class InventoryService {
   ) {
     await tx.$queryRaw`SELECT id FROM "StockBatch" WHERE "shopId"=${actor.shopId} AND "medicineId"=${medicineId} ORDER BY "expiryDate", id FOR UPDATE`;
     const batches = await tx.stockBatch.findMany({
-      where: { shopId: actor.shopId, medicineId },
+      where: {
+        shopId: actor.shopId,
+        medicineId,
+        OR: [
+          { locationId: null },
+          {
+            location: {
+              is: { active: true, canDispense: true, quarantined: false },
+            },
+          },
+        ],
+      },
     });
     const plan = planFefo(batches, qty);
     if (scannedLot)

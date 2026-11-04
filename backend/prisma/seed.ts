@@ -167,6 +167,54 @@ async function seed() {
     },
     update: {},
   });
+  const main = await db.stockLocation.upsert({
+    where: { shopId_code: { shopId: shop.id, code: "MAIN" } },
+    create: {
+      shopId: shop.id,
+      code: "MAIN",
+      name: "Main counter",
+      canDispense: true,
+    },
+    update: {},
+  });
+  await db.stockBatch.updateMany({
+    where: { shopId: shop.id, locationId: null },
+    data: { locationId: main.id },
+  });
+  await db.stockLocation.upsert({
+    where: { shopId_code: { shopId: shop.id, code: "WAREHOUSE" } },
+    create: {
+      shopId: shop.id,
+      name: "Central store",
+      code: "WAREHOUSE",
+      kind: "WAREHOUSE",
+      canDispense: false,
+    },
+    update: {},
+  });
+  await db.stockLocation.upsert({
+    where: { shopId_code: { shopId: shop.id, code: "COLD" } },
+    create: {
+      shopId: shop.id,
+      name: "Cold storage",
+      code: "COLD",
+      kind: "COLD_ROOM",
+      canDispense: true,
+    },
+    update: {},
+  });
+  await db.customer.upsert({
+    where: { id: "customer-demo" },
+    create: {
+      id: "customer-demo",
+      shopId: shop.id,
+      name: "Rahim Uddin",
+      phone: "+880 1712 345678",
+      contactConsent: true,
+      creditLimitMinor: 500000,
+    },
+    update: {},
+  });
   await maintenance(db);
   console.log(
     "Seed ready: 100 fictional medicine SKUs, 200 batches, five role accounts. Not clinical or regulatory reference data.",

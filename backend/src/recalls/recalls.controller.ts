@@ -17,8 +17,14 @@ export class RecallsController {
         where: { id: v.batchId, shopId: r.user.shopId },
       });
       requireThat(b && !b.recalled, "Batch is unavailable or already recalled");
-      await tx.stockBatch.update({
-        where: { id: b.id },
+      await tx.stockBatch.updateMany({
+        where: {
+          shopId: r.user.shopId,
+          medicineId: b.medicineId,
+          lotNumber: b.lotNumber,
+          expiryDate: b.expiryDate,
+          status: { not: "EXPIRED_WASTED" },
+        },
         data: { recalled: true, status: "RECALLED" },
       });
       await tx.alert.upsert({
@@ -35,12 +41,22 @@ export class RecallsController {
       return { ok: true };
     });
   }
-  @Roles("OWNER", "PHARMACIST", "AUDITOR") @Get(":id/customers") customers(
-    @Req() r: any,
-    @Param("id") batchId: string,
-  ) {
-    return this.db.saleLineBatch.findMany({
-      where: { batchId, batch: { shopId: r.user.shopId } },
+  @Roles("OWNER", "PHARMACIST", "AUDITOR")
+  @Get(":id/customers")
+  async customers(@Req() r: any, @Param("id") batchId: string) {
+    const batch = await this.db.stockBatch.findFirst({
+      where: { id: batchId, shopId: r.user.shopId },
+    });
+    requireThat(batch, "Batch not found");
+    const rows = await this.db.saleLineBatch.findMany({
+      where: {
+        batch: {
+          shopId: r.user.shopId,
+          medicineId: batch.medicineId,
+          lotNumber: batch.lotNumber,
+          expiryDate: batch.expiryDate,
+        },
+      },
       include: {
         saleLine: {
           include: {
@@ -58,6 +74,12 @@ export class RecallsController {
         },
       },
     });
+    return rows.map((row) => ({
+      ...row,
+      costMinor: ["OWNER", "AUDITOR"].includes(r.user.role)
+        ? row.costMinor
+        : undefined,
+    }));
   }
   @Roles("OWNER", "STORE_KEEPER") @Post(":id/waste") async waste(
     @Req() r: any,

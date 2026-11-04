@@ -12,7 +12,7 @@ export class InventoryController {
   @Get() async list(@Req() r: any) {
     const rows = await this.db.stockBatch.findMany({
       where: { shopId: r.user.shopId },
-      include: { medicine: { include: { generic: true } } },
+      include: { medicine: { include: { generic: true } }, location: true },
       orderBy: { expiryDate: "asc" },
     });
     return rows.map((row) => ({
@@ -27,9 +27,15 @@ export class InventoryController {
     @Body() body: unknown,
   ) {
     const v = parse(z.object({ medicineId: id, qty: quantity }), body);
-    return this.db.atomic((tx) =>
+    const plan = await this.db.atomic((tx) =>
       this.inventory.allocateFeFo(tx, r.user, v.medicineId, v.qty, false),
     );
+    return plan.map((p) => ({
+      ...p,
+      costMinor: ["OWNER", "AUDITOR"].includes(r.user.role)
+        ? p.costMinor
+        : undefined,
+    }));
   }
   @Roles("OWNER", "STORE_KEEPER") @Post(":id/adjust") async adjust(
     @Req() r: any,

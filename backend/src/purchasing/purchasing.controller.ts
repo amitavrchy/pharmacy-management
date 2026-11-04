@@ -159,8 +159,22 @@ export class PurchasingController {
         lotNumber: v.lotNumber,
         expiryDate: dateUTC(v.expiryDate),
       };
-      const previous = await tx.stockBatch.findUnique({
-        where: { shopId_medicineId_lotNumber_expiryDate: key },
+      const main = await tx.stockLocation.upsert({
+        where: { shopId_code: { shopId: r.user.shopId, code: "MAIN" } },
+        create: {
+          shopId: r.user.shopId,
+          code: "MAIN",
+          name: "Main counter",
+          canDispense: true,
+        },
+        update: {},
+      });
+      requireThat(
+        main.active && !main.quarantined,
+        "Main receiving location is quarantined or inactive",
+      );
+      const previous = await tx.stockBatch.findFirst({
+        where: { ...key, locationId: main.id },
       });
       if (previous)
         requireThat(
@@ -169,16 +183,20 @@ export class PurchasingController {
             previous.costMinor === line.costMinor,
           "Existing lot is blocked or has a different unit cost",
         );
-      const batch = await tx.stockBatch.upsert({
-        where: { shopId_medicineId_lotNumber_expiryDate: key },
-        create: {
-          ...key,
-          qtyOnHand: qty,
-          costMinor: line.costMinor,
-          rack: v.rack,
-        },
-        update: { qtyOnHand: { increment: qty }, rack: v.rack },
-      });
+      const batch = previous
+        ? await tx.stockBatch.update({
+            where: { id: previous.id },
+            data: { qtyOnHand: { increment: qty }, rack: v.rack },
+          })
+        : await tx.stockBatch.create({
+            data: {
+              ...key,
+              locationId: main.id,
+              qtyOnHand: qty,
+              costMinor: line.costMinor,
+              rack: v.rack,
+            },
+          });
       const receipt = await tx.goodsReceiptLine.create({
         data: {
           poId,

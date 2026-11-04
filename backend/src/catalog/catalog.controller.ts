@@ -43,6 +43,14 @@ export class CatalogController {
             recalled: false,
             expiryDate: { gt: dateUTC() },
             qtyOnHand: { gt: 0 },
+            OR: [
+              { locationId: null },
+              {
+                location: {
+                  is: { active: true, canDispense: true, quarantined: false },
+                },
+              },
+            ],
           },
           orderBy: { expiryDate: "asc" },
         },

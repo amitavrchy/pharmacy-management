@@ -94,11 +94,13 @@ model StockBatch {
   rack         String             @default("")
   status       String             @default("ACTIVE")
   recalled     Boolean            @default(false)
+  locationId   String?
+  location     StockLocation?     @relation(fields: [locationId], references: [id])
   allocations  SaleLineBatch[]
   movements    StockMovement[]
   receiptLines GoodsReceiptLine[]
 
-  @@unique([shopId, medicineId, lotNumber, expiryDate])
+  @@unique([shopId, medicineId, lotNumber, expiryDate, locationId])
   @@index([shopId, medicineId, expiryDate])
 }
 
@@ -183,23 +185,27 @@ model PrescriptionItem {
 }
 
 model Sale {
-  id                  String        @id @default(cuid())
+  id                  String         @id @default(cuid())
   shopId              String
-  shop                Shop          @relation(fields: [shopId], references: [id])
+  shop                Shop           @relation(fields: [shopId], references: [id])
   cashierId           String
-  clientSaleId        String        @unique
+  customerId          String?
+  customer            Customer?      @relation(fields: [customerId], references: [id])
+  shiftId             String?
+  shift               RegisterShift? @relation(fields: [shiftId], references: [id])
+  clientSaleId        String         @unique
   prescriptionId      String?
-  prescription        Prescription? @relation(fields: [prescriptionId], references: [id])
+  prescription        Prescription?  @relation(fields: [prescriptionId], references: [id])
   customerName        String?
   customerPhone       String?
-  status              String        @default("COMPLETED")
+  status              String         @default("COMPLETED")
   totalMinor          Int
   subtotalMinor       Int
-  discountMinor       Int           @default(0)
+  discountMinor       Int            @default(0)
   tenders             Json
-  substitutionConsent Boolean       @default(false)
+  substitutionConsent Boolean        @default(false)
   witness             String?
-  completedAt         DateTime      @default(now())
+  completedAt         DateTime       @default(now())
   lines               SaleLine[]
   returns             SaleReturn[]
 
@@ -287,4 +293,198 @@ model SyncReview {
   reason       String
   status       String   @default("PENDING_REVIEW")
   createdAt    DateTime @default(now())
+}
+
+model Customer {
+  id               String           @id @default(cuid())
+  shopId           String
+  name             String
+  phone            String?
+  email            String?
+  address          String           @default("")
+  allergies        String[]         @default([])
+  conditions       String[]         @default([])
+  contactConsent   Boolean          @default(false)
+  creditLimitMinor Int              @default(0)
+  balanceMinor     Int              @default(0)
+  loyaltyPoints    Int              @default(0)
+  active           Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  sales            Sale[]
+  ledger           CustomerLedger[]
+
+  @@unique([shopId, phone])
+  @@index([shopId, name])
+}
+
+model CustomerLedger {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  kind        String
+  amountMinor Int
+  method      String?
+  reference   String   @unique
+  note        String
+  actorId     String
+  createdAt   DateTime @default(now())
+}
+
+model RegisterShift {
+  id            String         @id @default(cuid())
+  shopId        String
+  cashierId     String
+  registerName  String
+  status        String         @default("OPEN")
+  openingMinor  Int
+  countedMinor  Int?
+  expectedMinor Int?
+  varianceMinor Int?
+  closingNote   String?
+  openedAt      DateTime       @default(now())
+  closedAt      DateTime?
+  movements     CashMovement[]
+  sales         Sale[]
+
+  @@index([shopId, status])
+}
+
+model CashMovement {
+  id          String        @id @default(cuid())
+  shiftId     String
+  shift       RegisterShift @relation(fields: [shiftId], references: [id])
+  kind        String
+  amountMinor Int
+  reference   String        @unique
+  note        String
+  actorId     String
+  createdAt   DateTime      @default(now())
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  shopId      String
+  category    String
+  amountMinor Int
+  method      String
+  note        String
+  reference   String   @unique
+  actorId     String
+  createdAt   DateTime @default(now())
+
+  @@index([shopId, createdAt])
+}
+
+model SupplierBill {
+  id            String            @id @default(cuid())
+  shopId        String
+  supplierId    String
+  poId          String?
+  invoiceNumber String
+  totalMinor    Int
+  paidMinor     Int               @default(0)
+  dueDate       DateTime          @db.Date
+  status        String            @default("UNPAID")
+  note          String            @default("")
+  createdAt     DateTime          @default(now())
+  payments      SupplierPayment[]
+
+  @@unique([shopId, supplierId, invoiceNumber])
+}
+
+model SupplierPayment {
+  id          String       @id @default(cuid())
+  billId      String
+  bill        SupplierBill @relation(fields: [billId], references: [id])
+  amountMinor Int
+  method      String
+  reference   String       @unique
+  actorId     String
+  note        String
+  createdAt   DateTime     @default(now())
+}
+
+model StockLocation {
+  id          String              @id @default(cuid())
+  shopId      String
+  name        String
+  code        String
+  kind        String              @default("COUNTER")
+  canDispense Boolean             @default(true)
+  quarantined Boolean             @default(false)
+  active      Boolean             @default(true)
+  batches     StockBatch[]
+  sensors     TemperatureSensor[]
+
+  @@unique([shopId, code])
+}
+
+model StockTransfer {
+  id              String    @id @default(cuid())
+  shopId          String
+  batchId         String
+  destinationId   String
+  qty             Decimal   @db.Decimal(14, 3)
+  status          String    @default("DRAFT")
+  note            String
+  createdBy       String
+  createdAt       DateTime  @default(now())
+  dispatchedAt    DateTime?
+  receivedAt      DateTime?
+  receivedBatchId String?
+
+  @@index([shopId, status])
+}
+
+model TemperatureSensor {
+  id         String               @id @default(cuid())
+  shopId     String
+  locationId String
+  location   StockLocation        @relation(fields: [locationId], references: [id])
+  name       String
+  minC       Decimal              @db.Decimal(6, 2)
+  maxC       Decimal              @db.Decimal(6, 2)
+  latestC    Decimal?             @db.Decimal(6, 2)
+  excursion  Boolean              @default(false)
+  readings   TemperatureReading[]
+}
+
+model TemperatureReading {
+  id        String            @id @default(cuid())
+  sensorId  String
+  sensor    TemperatureSensor @relation(fields: [sensorId], references: [id])
+  valueC    Decimal           @db.Decimal(6, 2)
+  excursion Boolean
+  note      String
+  actorId   String
+  createdAt DateTime          @default(now())
+}
+
+model Delivery {
+  id        String   @id @default(cuid())
+  shopId    String
+  saleId    String   @unique
+  recipient String
+  phone     String
+  address   String
+  courier   String?
+  status    String   @default("QUEUED")
+  note      String   @default("")
+  proof     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RefillReminder {
+  id             String   @id @default(cuid())
+  shopId         String
+  customerId     String
+  prescriptionId String?
+  dueDate        DateTime @db.Date
+  status         String   @default("SCHEDULED")
+  note           String
+  createdBy      String
+  createdAt      DateTime @default(now())
+
+  @@index([shopId, dueDate])
 }
