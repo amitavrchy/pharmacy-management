@@ -35,6 +35,10 @@ export default function POS() {
   const { user, notify } = useApp(),
     [meds, setMeds] = useState<any[]>([]),
     [rxs, setRxs] = useState<any[]>([]),
+    [customers, setCustomers] = useState<any[]>([]),
+    [customerId, setCustomerId] = useState(""),
+    [shifts, setShifts] = useState<any[]>([]),
+    [shiftId, setShiftId] = useState(""),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [search, setSearch] = useState(""),
@@ -62,6 +66,18 @@ export default function POS() {
       setMeds(rows);
       saveCatalog(user.id, rows);
       setRxs(await api("prescriptions"));
+      setCustomers(await api("customers"));
+      if (["OWNER", "CASHIER"].includes(user.role)) {
+        const open = await api<any[]>("finance/shifts");
+        setShifts(open.filter((s) => s.status === "OPEN"));
+        setShiftId(
+          (current) =>
+            current ||
+            open.find((s) => s.status === "OPEN" && s.cashierId === user.id)
+              ?.id ||
+            "",
+        );
+      }
       setError("");
     } catch (e) {
       const cached = await readCatalog(user.id);
@@ -121,6 +137,8 @@ export default function POS() {
     const payload = {
       clientSaleId: clientId.current,
       prescriptionId: rxId || undefined,
+      customerId: customerId || undefined,
+      shiftId: shiftId || undefined,
       customerName: customer || undefined,
       customerPhone: phone || undefined,
       lines: cart.map((l) => ({
@@ -153,7 +171,12 @@ export default function POS() {
         sale = await post("pos/sales", payload);
       } catch (e) {
         if (e instanceof ApiError) throw e;
-        if (cart.some((l) => l.med.schedule !== "OTC") || pin)
+        if (
+          cart.some((l) => l.med.schedule !== "OTC") ||
+          pin ||
+          method === "CREDIT" ||
+          second === "CREDIT"
+        )
           throw new Error(
             "Prescription and owner-override sales require a live connection",
           );
@@ -173,6 +196,10 @@ export default function POS() {
       setPhone("");
       setRxId("");
       setConsent(false);
+      setCustomerId("");
+      setMethod("CASH");
+      setSecond("");
+      setSecondAmount("0");
       clientId.current = crypto.randomUUID();
       load();
     } catch (e) {
@@ -488,6 +515,58 @@ export default function POS() {
           </div>
           <div className="cart-inputs">
             <label className="field">
+              <span>Registered customer account</span>
+              <select
+                aria-label="Registered customer account"
+                value={customerId}
+                onChange={(e) => {
+                  setCustomerId(e.target.value);
+                  if (!e.target.value) {
+                    setMethod("CASH");
+                    setSecond("");
+                  }
+                }}
+              >
+                <option value="">Walk-in / no account</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} · Balance {taka(c.balanceMinor)} · Limit{" "}
+                    {taka(c.creditLimitMinor)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {customerId &&
+              customers.find((c) => c.id === customerId)?.allergies?.length >
+                0 && (
+                <div className="inline-note">
+                  Recorded allergies:{" "}
+                  {customers
+                    .find((c) => c.id === customerId)
+                    .allergies.join(", ")}
+                  . Pharmacist review required.
+                </div>
+              )}
+            {["OWNER", "CASHIER"].includes(user.role) && (
+              <label className="field">
+                <span>Register shift</span>
+                <select
+                  aria-label="Register shift"
+                  value={shiftId}
+                  onChange={(e) => setShiftId(e.target.value)}
+                >
+                  <option value="">
+                    Unlinked sale · no drawer reconciliation
+                  </option>
+                  {shifts.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.registerName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label className="field">
               <span>Customer name</span>
               <input
                 value={customer}
@@ -508,9 +587,16 @@ export default function POS() {
               <span>Payment method</span>
               <select
                 value={method}
+                aria-label="Payment method"
                 onChange={(e) => setMethod(e.target.value)}
               >
-                {["CASH", "BKASH", "NAGAD", "CARD"].map((m) => (
+                {[
+                  "CASH",
+                  "BKASH",
+                  "NAGAD",
+                  "CARD",
+                  ...(customerId ? ["CREDIT"] : []),
+                ].map((m) => (
                   <option key={m}>{m}</option>
                 ))}
               </select>
@@ -522,7 +608,13 @@ export default function POS() {
                 onChange={(e) => setSecond(e.target.value)}
               >
                 <option value="">Single payment</option>
-                {["CASH", "BKASH", "NAGAD", "CARD"]
+                {[
+                  "CASH",
+                  "BKASH",
+                  "NAGAD",
+                  "CARD",
+                  ...(customerId ? ["CREDIT"] : []),
+                ]
                   .filter((m) => m !== method)
                   .map((m) => (
                     <option key={m}>{m}</option>

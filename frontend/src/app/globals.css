@@ -1,4 +1,5 @@
 :root {
+  --operation-gradient: linear-gradient(135deg, #e8f3ea 0%, #f7faf5 100%);
   --bg: #f6f8f7;
   --white: #fff;
   --ink: #1c3029;
@@ -1857,5 +1858,229 @@ td .cell-product {
   }
   .receipt {
     padding: 5mm;
+  }
+}
+.operation-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 22px;
+}
+.drawer-amount {
+  background: var(--operation-gradient);
+  border: 1px solid #e3ecde;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.drawer-amount small {
+  display: block;
+  color: #6e8a74;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+}
+.drawer-amount strong {
+  font:
+    700 34px/1.5 "Manrope Variable",
+    sans-serif;
+  letter-spacing: -1px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.detail-grid span {
+  font-size: 14px;
+  color: var(--muted);
+}
+.detail-grid strong {
+  display: block;
+  color: var(--ink);
+  margin-top: 5px;
+}
+.temperature-value {
+  font:
+    700 44px/1.5 "Manrope Variable",
+    sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--green);
+  letter-spacing: -2px;
+}
+.temperature-value span {
+  font-size: 22px;
+  color: var(--muted);
+}
+.temperature-value.text-red {
+  color: var(--red);
+}
+.sensor-reading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+  gap: 12px;
+}
+.sensor-reading small {
+  display: block;
+  font-size: 14px;
+  color: var(--muted);
+}
+details summary {
+  font-size: 14px;
+  color: var(--green);
+  cursor: pointer;
+}
+.delivery-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(210px, 1fr));
+  gap: 15px;
+  overflow-x: auto;
+  padding-bottom: 15px;
+}
+.delivery-column {
+  background: #edf2ee;
+  border: 1px solid #e3ebe4;
+  border-radius: 12px;
+  padding: 13px;
+  min-height: 320px;
+}
+.delivery-column-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 14px;
+  padding: 7px 2px 18px;
+  color: #678270;
+}
+.delivery-column-heading span {
+  background: white;
+  min-width: 25px;
+  text-align: center;
+  border-radius: 6px;
+  padding: 2px 5px;
+}
+.delivery-card {
+  padding: 17px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 13px;
+  box-shadow: 0 2px 3px #193f2704;
+}
+.delivery-card h3 {
+  margin: 12px 0;
+}
+.delivery-card p {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 14px;
+  color: var(--muted);
+  margin: 11px 0;
+  overflow-wrap: anywhere;
+}
+.delivery-card .btn {
+  margin-top: 10px;
+}
+.delivery-card .eyebrow {
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}
+.abc-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin: 20px 0;
+}
+.abc-row > div {
+  flex: 1;
+}
+.abc-class {
+  width: 38px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--green-soft);
+  font-weight: 700;
+  color: var(--green);
+}
+.abc-track {
+  height: 8px;
+  background: #edf3ec;
+  border-radius: 5px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.abc-track i {
+  display: block;
+  height: 100%;
+  background: #6ca58b;
+  min-width: 3px;
+  border-radius: 5px;
+}
+.planning-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.planning-input input {
+  width: 70px;
+  min-height: 38px;
+  padding: 7px;
+}
+.metric-amber {
+  border-top: 2px solid #dfc79a;
+}
+.metric-green {
+  border-top: 2px solid #a3cdb5;
+}
+.enterprise-banner {
+  background: linear-gradient(100deg, #173d30, #2f6349);
+  color: #fff;
+  border-radius: 14px;
+  padding: 25px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+.enterprise-banner p {
+  color: #c1d4c5;
+  font-size: 14px;
+  margin-top: 7px;
+}
+.enterprise-banner .btn {
+  background: white;
+  color: var(--green);
+  border: 0;
+}
+@media (max-width: 760px) {
+  .delivery-board {
+    grid-template-columns: repeat(5, 260px);
+  }
+  .operation-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .enterprise-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .abc-row > strong {
+    font-size: 14px;
+  }
+  .planning-input {
+    flex: 1;
+  }
+  .drawer-amount strong {
+    font-size: 30px;
   }
 }

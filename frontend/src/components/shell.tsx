@@ -21,6 +21,11 @@ import {
   ShieldCheck,
   ChevronDown,
   ArrowUpRight,
+  UsersRound,
+  Wallet,
+  Building2,
+  Truck,
+  TrendingUp,
 } from "lucide-react";
 import { useApp } from "./providers";
 import { Loading } from "./ui";
@@ -40,6 +45,31 @@ const nav = [
   { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/reports", label: "Reports", icon: ChartNoAxesCombined },
   { href: "/sync", label: "Offline sync", icon: RefreshCw },
+  {
+    href: "/customers",
+    label: "Customers & accounts",
+    icon: UsersRound,
+    roles: ["OWNER", "PHARMACIST", "CASHIER", "AUDITOR"],
+  },
+  {
+    href: "/finance",
+    label: "Finance & registers",
+    icon: Wallet,
+    roles: ["OWNER", "CASHIER", "AUDITOR"],
+  },
+  { href: "/stock-control", label: "Stock control center", icon: Building2 },
+  {
+    href: "/fulfillment",
+    label: "Delivery & follow-up",
+    icon: Truck,
+    roles: ["OWNER", "PHARMACIST", "CASHIER", "AUDITOR"],
+  },
+  {
+    href: "/intelligence",
+    label: "Business intelligence",
+    icon: TrendingUp,
+    roles: ["OWNER", "STORE_KEEPER", "AUDITOR"],
+  },
 ];
 export function Shell({ children }: { children: ReactNode }) {
   const { user, loading, logout } = useApp(),
