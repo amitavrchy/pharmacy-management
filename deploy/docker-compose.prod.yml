@@ -1,0 +1,78 @@
+# Production stack for Medora on the shared EC2 host.
+# Deployed by .github/workflows/deploy.yml to /opt/apps/medora/docker-compose.yml.
+# Runtime env comes from /opt/apps/medora/.env (see deploy/.env.example). Never commit real secrets.
+# Requires the external network `apps-net` and the `shared-postgres` container on it.
+name: medora
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  backend:
+    image: ghcr.io/amitavrchy/medora-backend:${IMAGE_TAG:-latest}
+    container_name: medora-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "4004"
+      NODE_OPTIONS: --max-old-space-size=320
+    ports:
+      - "127.0.0.1:4004:4004"
+    mem_limit: 448m
+    memswap_limit: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4004/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    logging: *logging
+    networks: [apps-net]
+
+  frontend:
+    image: ghcr.io/amitavrchy/medora-frontend:${IMAGE_TAG:-latest}
+    container_name: medora-frontend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3004"
+      NODE_OPTIONS: --max-old-space-size=256
+    ports:
+      - "127.0.0.1:3004:3004"
+    mem_limit: 384m
+    memswap_limit: 640m
+    depends_on:
+      - backend
+    logging: *logging
+    networks: [apps-net]
+
+  # Hourly maintenance (quarantines expired batches, near-expiry / low-stock alerts) via BullMQ.
+  # Needs Redis (REDIS_URL), which is NOT provisioned on this host. Disabled by default; enable with
+  #   docker compose --profile worker up -d
+  # once REDIS_URL points at a reachable Redis.
+  worker:
+    image: ghcr.io/amitavrchy/medora-backend:${IMAGE_TAG:-latest}
+    container_name: medora-worker
+    profiles: ["worker"]
+    restart: unless-stopped
+    command: ["node", "dist/src/jobs/worker.js"]
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=192
+    healthcheck:
+      disable: true
+    mem_limit: 256m
+    logging: *logging
+    networks: [apps-net]
+
+networks:
+  apps-net:
+    external: true
