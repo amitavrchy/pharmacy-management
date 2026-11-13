@@ -3,9 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "node init && next dev -p 3217",
-    "build": "node init && next build",
-    "start": "node init && next start -p 3217",
+    "dev": "next dev -p 3217",
+    "build": "next build",
+    "start": "next start -p 3217",
     "check": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:browser-install": "playwright install chromium"
